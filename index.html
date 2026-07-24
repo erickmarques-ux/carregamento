@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Carregamento — Torre de Controle</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{
+    --void:#0b0f14; --panel:#141b23; --line:#243040; --ink:#e8edf3; --mute:#8b9bb0;
+    --amber:#f97316; --ok:#22c55e; --alert:#ef4444; --info:#38bdf8;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--void);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    padding-bottom:env(safe-area-inset-bottom)}
+
+  header{position:sticky;top:0;z-index:10;background:#000;border-bottom:1px solid var(--line);
+    padding:10px 14px calc(10px + env(safe-area-inset-top)) 14px}
+  .marca{font-weight:800;letter-spacing:-.02em;font-size:1.05rem}
+  .marca em{font-style:normal;color:var(--amber)}
+  .sub{color:var(--mute);font-size:.72rem;margin-top:2px}
+  .sub b{color:var(--ok)}
+  .sub.velho b{color:var(--alert)}
+
+  .bases{display:flex;gap:6px;overflow-x:auto;padding:10px 14px;scrollbar-width:none}
+  .bases::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;padding:7px 14px;border-radius:999px;border:1px solid var(--line);
+    background:var(--panel);color:var(--mute);font-size:.82rem;font-weight:600;cursor:pointer}
+  .chip.on{background:var(--amber);border-color:var(--amber);color:#0b0f14}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 14px 10px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center}
+  .kpi .n{font-size:1.25rem;font-weight:800;line-height:1.1}
+  .kpi .l{font-size:.56rem;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+  .kpi.p .n{color:var(--alert)} .kpi.s .n{color:var(--ok)} .kpi.r .n{color:var(--info)}
+
+  .barra{display:flex;gap:8px;align-items:center;padding:0 14px 10px}
+  .busca{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    color:var(--ink);padding:9px 12px;font-size:.9rem;min-width:0}
+  .busca::placeholder{color:#5a6b80}
+  .tog{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+    color:var(--mute);font-size:.78rem;font-weight:600;white-space:nowrap;cursor:pointer}
+  .tog.on{background:var(--alert);border-color:var(--alert);color:#fff}
+
+  .lista{padding:0 14px 24px;display:flex;flex-direction:column;gap:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+    border-radius:10px;padding:11px 12px}
+  .card.pend{border-left-color:var(--alert)}
+  .card.exp{border-left-color:var(--ok);opacity:.72}
+  .l1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .rota{font-weight:800;font-size:1rem;letter-spacing:-.01em}
+  .proc{font-size:.66rem;padding:3px 8px;border-radius:999px;background:#1e2936;color:var(--info);
+    white-space:nowrap;font-weight:600}
+  .proc.exp{background:rgba(34,197,94,.15);color:var(--ok)}
+  .mot{color:var(--mute);font-size:.82rem;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .tag{font-size:.68rem;background:#0f1620;border:1px solid var(--line);color:var(--mute);
+    padding:3px 8px;border-radius:6px}
+  .tag b{color:var(--ink);font-weight:600}
+  .tag.ns{background:rgba(239,68,68,.15);border-color:var(--alert);color:#fca5a5}
+
+  /* visão geral: um card por base */
+  .geral{padding:0 14px 24px;display:flex;flex-direction:column;gap:9px}
+  .bcard{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+    border-radius:12px;padding:13px 14px;cursor:pointer}
+  .bcard.alerta{border-left-color:var(--alert)}
+  .bcard.ok{border-left-color:var(--ok)}
+  .bcard.frio{border-left-color:#3d4a5c;opacity:.6}
+  .bl1{display:flex;justify-content:space-between;align-items:center}
+  .bnome{font-weight:800;font-size:1.05rem;letter-spacing:-.01em}
+  .bidade{font-size:.64rem;color:var(--mute)}
+  .bidade.velho{color:var(--alert)}
+  .bbar{height:6px;background:#0f1620;border-radius:99px;margin-top:10px;overflow:hidden;display:flex}
+  .bbar i{display:block;height:100%}
+  .bbar .e{background:var(--ok)} .bbar .p{background:var(--alert)}
+  .bnums{display:flex;gap:14px;margin-top:8px}
+  .bnum{font-size:.72rem;color:var(--mute)}
+  .bnum b{font-size:1.05rem;color:var(--ink);font-weight:800;display:block;line-height:1.2}
+  .bnum.p b{color:var(--alert)} .bnum.e b{color:var(--ok)}
+  /* visão GERAL: um card por base */
+  .geral{padding:0 14px 24px;display:grid;grid-template-columns:1fr;gap:9px}
+  @media(min-width:640px){ .geral{grid-template-columns:1fr 1fr} }
+  .bcard{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
+    border-radius:12px;padding:13px 14px;cursor:pointer}
+  .bcard.frio{border-left-color:var(--line);opacity:.6}
+  .bh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .bnome{font-weight:800;font-size:1.05rem;letter-spacing:-.01em}
+  .bidade{font-size:.66rem;color:var(--mute)}
+  .bidade.velho{color:var(--alert)}
+  .bbarra{height:6px;background:#0f1620;border-radius:99px;overflow:hidden;margin:10px 0 8px;display:flex}
+  .bbarra i{display:block;height:100%}
+  .bbarra .exp{background:var(--ok)} .bbarra .pen{background:var(--alert)}
+  .bnums{display:flex;gap:14px;font-size:.72rem;color:var(--mute)}
+  .bnums b{font-size:.95rem;display:block;line-height:1.2}
+  .bnums .v b{color:var(--ok)} .bnums .p b{color:var(--alert)} .bnums .t b{color:var(--ink)}
+
+  /* grupos por onda */
+  .grupo{margin-top:6px}
+  .gh{position:sticky;top:58px;z-index:5;display:flex;align-items:center;gap:8px;
+    background:var(--void);padding:9px 2px 7px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  .gh .nome{font-size:.74rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
+  .gh .cnt{font-size:.66rem;color:var(--mute);margin-left:auto;white-space:nowrap}
+  .gh .cnt b{color:var(--alert)}
+  .gh .cnt b.ok{color:var(--ok)}
+
+  .vazio{text-align:center;color:var(--mute);padding:44px 20px;font-size:.9rem;line-height:1.6}
+  .rodape{text-align:center;color:#3d4a5c;font-size:.65rem;padding:16px;letter-spacing:.1em;text-transform:uppercase}
+  .carregando{text-align:center;color:var(--mute);padding:40px;font-size:.85rem}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid var(--line);
+    border-top-color:var(--amber);border-radius:50%;animation:g .7s linear infinite;vertical-align:-2px;margin-right:7px}
+  @keyframes g{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca">Torre de <em>Controle</em> · Carregamento</div>
+  <div class="sub" id="sub">carregando…</div>
+</header>
+
+<div class="bases" id="bases"></div>
+<div class="kpis" id="kpis"></div>
+
+<div class="barra" id="barraFiltros">
+  <input class="busca" id="busca" placeholder="rota, motorista, doca…" oninput="render()">
+  <div class="tog" id="tog" onclick="togglePend()">Só pendentes</div>
+</div>
+
+<div class="lista" id="lista">
+  <div class="carregando"><span class="spin"></span>buscando dados…</div>
+</div>
+<div class="rodape" id="rodape">Data Analytics &amp; Monitoring · atualiza sozinho a cada 20s</div>
+
+<script>
+// Os dados vêm de arquivos JSON no próprio repositório (a extensão grava neles).
+// O Apps Script não serve aqui: a política do Workspace exige login @mercadolivre.com.
+// CONFIGURE (mesmo owner/repo/branch que você pôs no host.js da extensão):
+var WORKER_URL = 'https://worker-kangu.erick-marques.workers.dev';   // mesma URL do worker.js
+
+function urlDados(){ return WORKER_URL + '?t=' + Date.now(); }
+
+var BASES = ['SMG1','SMG8','SMG14','SMG15'];
+// localStorage pode estar bloqueado (origem opaca — aba aberta de dentro de um iframe
+// com sandbox, ou modo restrito). Sem isso a página morria já na primeira linha.
+function lsLer(k, padrao){ try { var v = localStorage.getItem(k); return v == null ? padrao : v; } catch(e){ return padrao; } }
+function lsGravar(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+
+var baseAtual = lsLer('base', 'GERAL');   // abre no panorama
+var soPendentes = lsLer('soPend','0') === '1';
+var DADOS = {};
+
+function chips(){
+  var todas = ['GERAL'].concat(BASES);
+  document.getElementById('bases').innerHTML = todas.map(function(b){
+    return '<div class="chip'+(b===baseAtual?' on':'')+'" onclick="trocaBase(\'' + b + '\')">'+(b==='GERAL'?'▦ Geral':b)+'</div>';
+  }).join('');
+}
+function trocaBase(b){ baseAtual=b; lsGravar('base',b); chips(); render(); }
+function togglePend(){ soPendentes=!soPendentes; lsGravar('soPend', soPendentes?'1':'0'); render(); }
+
+function ondaNum(v){
+  var n = parseInt(String(v==null?'':v).replace(/\D/g,''), 10);
+  return isNaN(n) ? 99 : n;
+}
+function ondaLabel(v){
+  var n = ondaNum(v);
+  return n === 99 ? 'Sem onda' : (n + 'ª onda');
+}
+
+function ehExpedida(r){ return String(r.processo||'').trim().toLowerCase()==='expedida'; }
+
+// Pendente = ainda não expedida. Exceção importante: quando o dispatch não tem o processo
+// daquela gaiola mas o monitoramento já mostra a rota subida/rodando, ela NÃO é pendente —
+// o dado que falta é o da aduana, não o da rota.
+function ehPendente(r){
+  var p = String(r.processo||'').trim().toLowerCase();
+  if (p === 'expedida') return false;
+  if (!p && (r.subiu || r.status === 'SUBIU' || r.status === 'EM_ROTA' || r.status === 'FINALIZADA')) return false;
+  return true;
+}
+
+function minutosDesde(iso){
+  if(!iso) return null;
+  var d=new Date(iso); if(isNaN(d)) return null;
+  return Math.round((Date.now()-d.getTime())/60000);
+}
+
+// Um único arquivo com todas as bases (menos commits, atualização mais rápida).
+// raw.githubusercontent.com responde com CORS liberado, então fetch() funciona direto.
+function diag(txt){
+  var el = document.getElementById('rodape');
+  if (el) el.innerHTML = txt;
+}
+
+async function buscar(){
+  var url = urlDados();
+  try{
+    var r = await fetch(url, {cache:'no-store'});
+    diag('HTTP ' + r.status + ' &middot; ' + new Date().toLocaleTimeString());
+    if(!r.ok){
+      if(!Object.keys(DADOS).length){
+        document.getElementById('lista').innerHTML =
+          '<div class="vazio">'
+          + (r.status === 404
+              ? 'Ainda não há nada publicado.<br><br>Isso é normal antes da primeira publicação: '
+                + 'abra a Torre no PC e espere um ciclo.'
+              : 'Não consegui ler os dados (HTTP ' + r.status + ').')
+          + '<br><br><span style="font-size:.72rem;color:#5a6b80;word-break:break-all">'
+          + url.split('?')[0] + '</span></div>';
+      }
+      return;
+    }
+    var j = await r.json();
+    var bases = j.bases || {};
+    DADOS = {};
+    Object.keys(bases).forEach(function(b){
+      var p = bases[b] || {};
+      DADOS[b] = { atualizadoEm: p.atualizadoEm, dados: { kpis: p.kpis, linhas: p.linhas, operador: p.operador } };
+    });
+    render();
+  }catch(e){
+    diag('falha de rede &middot; ' + new Date().toLocaleTimeString());
+    if(!Object.keys(DADOS).length){
+      document.getElementById('lista').innerHTML =
+        '<div class="vazio">Falha de rede ao buscar os dados.<br>Puxe para atualizar.</div>';
+    }
+  }
+}
+
+function render(){
+  if (baseAtual === 'GERAL') return renderGeral();
+  document.getElementById('barraFiltros').style.display = '';
+  var pacote = DADOS[baseAtual] || {};
+  var d = pacote.dados || {};
+  var linhas = d.linhas || [];
+  var kpis = d.kpis || {};
+
+  // cabeçalho: quão fresco está o dado
+  var min = minutosDesde(pacote.atualizadoEm);
+  var sub = document.getElementById('sub');
+  if (min === null) { sub.innerHTML = 'sem dados ainda'; sub.className='sub'; }
+  else if (min <= 3) { sub.innerHTML = 'atualizado <b>agora mesmo</b>' + (d.operador?(' · '+d.operador):''); sub.className='sub'; }
+  else { sub.innerHTML = 'atualizado há <b>'+min+' min</b>' + (min>15?' — a Torre pode estar fechada':''); sub.className = min>15?'sub velho':'sub'; }
+
+  document.getElementById('tog').className = 'tog'+(soPendentes?' on':'');
+  document.getElementById('lista').className = 'lista';
+
+  var pend = linhas.filter(ehPendente).length;
+  document.getElementById('kpis').innerHTML =
+      '<div class="kpi"><div class="n">'+(kpis.total||linhas.length||0)+'</div><div class="l">Rotas</div></div>'
+    + '<div class="kpi s"><div class="n">'+(kpis.subiram||0)+'</div><div class="l">Subiram</div></div>'
+    + '<div class="kpi p"><div class="n">'+pend+'</div><div class="l">Pendentes</div></div>'
+    + '<div class="kpi r"><div class="n">'+(kpis.emRota||0)+'</div><div class="l">Em rota</div></div>';
+
+  var q = (document.getElementById('busca').value||'').trim().toLowerCase();
+  var vis = linhas.filter(function(l){
+    if (soPendentes && !ehPendente(l)) return false;
+    if (!q) return true;
+    return [l.rota,l.motorista,l.doca,l.cidade,l.onda,l.processo].join(' ').toLowerCase().indexOf(q) > -1;
+  });
+
+  if(!vis.length){
+    document.getElementById('lista').innerHTML = '<div class="vazio">'
+      + (linhas.length ? 'Nada nesse filtro.' : 'Sem carregamento publicado para '+baseAtual+'.<br>Abra a Torre no PC para publicar.')
+      + '</div>';
+    return;
+  }
+
+  // agrupa por ONDA (menor -> maior), igual à extensão
+  var grupos = {};
+  vis.forEach(function(l){
+    var n = ondaNum(l.onda);
+    (grupos[n] = grupos[n] || []).push(l);
+  });
+
+  function cardHtml(l){
+    var exp = !ehPendente(l);
+    var tags = '';
+    if(l.doca)    tags += '<span class="tag">vaga <b>'+l.doca+'</b></span>';
+    if(l.cidade)  tags += '<span class="tag">'+l.cidade+'</span>';
+    if(l.tempoMin!=='' && l.tempoMin!=null) tags += '<span class="tag">'+l.tempoMin+' min</span>';
+    if(l.check==='NS') tags += '<span class="tag ns">NS</span>';
+    return '<div class="card '+(exp?'exp':'pend')+'">'
+      + '<div class="l1"><span class="rota">'+l.rota+'</span>'
+      + '<span class="proc'+(exp?' exp':'')+'">'+(l.processo || l.statusLabel || '—')+'</span></div>'
+      + '<div class="mot">'+(l.motorista||'sem motorista')+'</div>'
+      + (tags?('<div class="meta">'+tags+'</div>'):'')
+      + '</div>';
+  }
+
+  var html = Object.keys(grupos).map(Number).sort(function(a,b){ return a-b; }).map(function(n){
+    var itens = grupos[n];
+    // dentro da onda: pendentes primeiro, depois por nome de rota
+    itens.sort(function(a,b){
+      var pa = ehPendente(a)?0:1, pb = ehPendente(b)?0:1;
+      return pa-pb || String(a.rota).localeCompare(String(b.rota));
+    });
+    var pen = itens.filter(ehPendente).length;
+    var resumo = pen
+      ? '<b>'+pen+'</b> pendente'+(pen>1?'s':'')+' de '+itens.length
+      : '<b class="ok">todas expedidas</b> ('+itens.length+')';
+    return '<div class="grupo">'
+      + '<div class="gh"><span class="nome">'+ondaLabel(n)+'</span><span class="cnt">'+resumo+'</span></div>'
+      + itens.map(cardHtml).join('')
+      + '</div>';
+  }).join('');
+
+  document.getElementById('lista').innerHTML = html;
+}
+
+function renderGeral(){
+  document.getElementById('barraFiltros').style.display = 'none';
+  var tot={rotas:0,exp:0,pend:0,rota:0}, algum=false, maisVelho=null;
+  var cards = BASES.map(function(b){
+    var pac = DADOS[b] || {}; var d = pac.dados || {}; var ls = d.linhas || []; var k = d.kpis || {};
+    var pen = ls.filter(ehPendente).length, exp = ls.length - pen;
+    var min = minutosDesde(pac.atualizadoEm);
+    if (ls.length) { algum = true; tot.rotas += ls.length; tot.exp += exp; tot.pend += pen; tot.rota += (k.emRota||0); }
+    if (min !== null && (maisVelho === null || min > maisVelho)) maisVelho = min;
+    var pctE = ls.length ? Math.round(exp/ls.length*100) : 0;
+    var frio = !ls.length || (min !== null && min > 15);
+    return '<div class="bcard'+(frio?' frio':'')+'" onclick="trocaBase(\''+b+'\')">'
+      + '<div class="bh"><span class="bnome">'+b+'</span>'
+      + '<span class="bidade'+((min!==null&&min>15)?' velho':'')+'">'
+      + (min===null?'sem dados':(min<=3?'agora mesmo':'há '+min+' min'))+'</span></div>'
+      + (ls.length
+        ? '<div class="bbarra"><i class="exp" style="width:'+pctE+'%"></i><i class="pen" style="width:'+(100-pctE)+'%"></i></div>'
+          + '<div class="bnums"><span class="t"><b>'+ls.length+'</b>rotas</span>'
+          + '<span class="v"><b>'+exp+'</b>expedidas</span>'
+          + '<span class="p"><b>'+pen+'</b>pendentes</span></div>'
+        : '<div class="bnums" style="margin-top:8px;">Nada publicado ainda</div>')
+      + '</div>';
+  }).join('');
+
+  var sub = document.getElementById('sub');
+  if (!algum) { sub.innerHTML = 'sem dados ainda'; sub.className='sub'; }
+  else if (maisVelho !== null && maisVelho > 15) { sub.innerHTML = 'dado mais antigo: <b>'+maisVelho+' min</b> — a Torre pode estar fechada'; sub.className='sub velho'; }
+  else { sub.innerHTML = 'visão geral · <b>todas as bases</b>'; sub.className='sub'; }
+
+  var pctG = tot.rotas ? Math.round(tot.exp/tot.rotas*100) : 0;
+  document.getElementById('kpis').innerHTML =
+      '<div class="kpi"><div class="n">'+tot.rotas+'</div><div class="l">Rotas</div></div>'
+    + '<div class="kpi s"><div class="n">'+tot.exp+'</div><div class="l">Expedidas</div></div>'
+    + '<div class="kpi p"><div class="n">'+tot.pend+'</div><div class="l">Pendentes</div></div>'
+    + '<div class="kpi r"><div class="n">'+pctG+'%</div><div class="l">Concluído</div></div>';
+
+  document.getElementById('lista').innerHTML = '<div class="geral">'+cards+'</div>';
+}
+
+chips();
+buscar();
+setInterval(buscar, 20000);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) buscar(); });
+</script>
+</body>
+</html>
