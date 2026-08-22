@@ -61,25 +61,6 @@
   .tag b{color:var(--ink);font-weight:600}
   .tag.ns{background:rgba(239,68,68,.15);border-color:var(--alert);color:#fca5a5}
 
-  /* visão geral: um card por base */
-  .geral{padding:0 14px 24px;display:flex;flex-direction:column;gap:9px}
-  .bcard{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
-    border-radius:12px;padding:13px 14px;cursor:pointer}
-  .bcard.alerta{border-left-color:var(--alert)}
-  .bcard.ok{border-left-color:var(--ok)}
-  .bcard.frio{border-left-color:#3d4a5c;opacity:.6}
-  .bl1{display:flex;justify-content:space-between;align-items:center}
-  .bnome{font-weight:800;font-size:1.05rem;letter-spacing:-.01em}
-  .bidade{font-size:.64rem;color:var(--mute)}
-  .bidade.velho{color:var(--alert)}
-  .bbar{height:6px;background:#0f1620;border-radius:99px;margin-top:10px;overflow:hidden;display:flex}
-  .bbar i{display:block;height:100%}
-  .bbar .e{background:var(--ok)} .bbar .p{background:var(--alert)}
-  .bnums{display:flex;gap:14px;margin-top:8px}
-  .bnum{font-size:.72rem;color:var(--mute)}
-  .bnum b{font-size:1.05rem;color:var(--ink);font-weight:800;display:block;line-height:1.2}
-  .bnum.p b{color:var(--alert)} .bnum.e b{color:var(--ok)}
-  /* visão GERAL: um card por base */
   .geral{padding:0 14px 24px;display:grid;grid-template-columns:1fr;gap:9px}
   @media(min-width:640px){ .geral{grid-template-columns:1fr 1fr} }
   .bcard{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
@@ -134,20 +115,16 @@
 <div class="rodape" id="rodape">Data Analytics &amp; Monitoring · atualiza sozinho a cada 20s</div>
 
 <script>
-// Os dados vêm de arquivos JSON no próprio repositório (a extensão grava neles).
-// O Apps Script não serve aqui: a política do Workspace exige login @mercadolivre.com.
-// CONFIGURE (mesmo owner/repo/branch que você pôs no host.js da extensão):
-var WORKER_URL = 'https://worker-kangu.erick-marques.workers.dev';   // mesma URL do worker.js
+var WORKER_URL = 'https://worker-kangu.erick-marques.workers.dev';
 
 function urlDados(){ return WORKER_URL + '?t=' + Date.now(); }
 
 var BASES = ['SMG1','SMG8','SMG14','SMG15'];
-// localStorage pode estar bloqueado (origem opaca — aba aberta de dentro de um iframe
-// com sandbox, ou modo restrito). Sem isso a página morria já na primeira linha.
+
 function lsLer(k, padrao){ try { var v = localStorage.getItem(k); return v == null ? padrao : v; } catch(e){ return padrao; } }
 function lsGravar(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
 
-var baseAtual = lsLer('base', 'GERAL');   // abre no panorama
+var baseAtual = lsLer('base', 'GERAL');
 var soPendentes = lsLer('soPend','0') === '1';
 var DADOS = {};
 
@@ -171,9 +148,6 @@ function ondaLabel(v){
 
 function ehExpedida(r){ return String(r.processo||'').trim().toLowerCase()==='expedida'; }
 
-// Pendente = ainda não expedida. Exceção importante: quando o dispatch não tem o processo
-// daquela gaiola mas o monitoramento já mostra a rota subida/rodando, ela NÃO é pendente —
-// o dado que falta é o da aduana, não o da rota.
 function ehPendente(r){
   var p = String(r.processo||'').trim().toLowerCase();
   if (p === 'expedida') return false;
@@ -187,8 +161,6 @@ function minutosDesde(iso){
   return Math.round((Date.now()-d.getTime())/60000);
 }
 
-// Um único arquivo com todas as bases (menos commits, atualização mais rápida).
-// raw.githubusercontent.com responde com CORS liberado, então fetch() funciona direto.
 function diag(txt){
   var el = document.getElementById('rodape');
   if (el) el.innerHTML = txt;
@@ -237,7 +209,6 @@ function render(){
   var linhas = d.linhas || [];
   var kpis = d.kpis || {};
 
-  // cabeçalho: quão fresco está o dado
   var min = minutosDesde(pacote.atualizadoEm);
   var sub = document.getElementById('sub');
   if (min === null) { sub.innerHTML = 'sem dados ainda'; sub.className='sub'; }
@@ -268,7 +239,7 @@ function render(){
     return;
   }
 
-  // agrupa por ONDA (menor -> maior), igual à extensão
+  // Agrupa por ONDA (menor -> maior)
   var grupos = {};
   vis.forEach(function(l){
     var n = ondaNum(l.onda);
@@ -292,11 +263,23 @@ function render(){
 
   var html = Object.keys(grupos).map(Number).sort(function(a,b){ return a-b; }).map(function(n){
     var itens = grupos[n];
-    // dentro da onda: pendentes primeiro, depois por nome de rota
-    itens.sort(function(a,b){
-      var pa = ehPendente(a)?0:1, pb = ehPendente(b)?0:1;
-      return pa-pb || String(a.rota).localeCompare(String(b.rota));
+
+    // Ordenação dentro da onda: vaga/doca da menor para a maior
+    itens.sort(function(a, b){
+      var docaA = a.doca != null ? String(a.doca).trim() : '';
+      var docaB = b.doca != null ? String(b.doca).trim() : '';
+
+      // Itens sem vaga vão para o final
+      if (!docaA && docaB) return 1;
+      if (docaA && !docaB) return -1;
+
+      var compVaga = docaA.localeCompare(docaB, undefined, { numeric: true, sensitivity: 'base' });
+      if (compVaga !== 0) return compVaga;
+
+      // Desempate: rota alfabética
+      return String(a.rota).localeCompare(String(b.rota));
     });
+
     var pen = itens.filter(ehPendente).length;
     var resumo = pen
       ? '<b>'+pen+'</b> pendente'+(pen>1?'s':'')+' de '+itens.length
@@ -316,7 +299,7 @@ function renderGeral(){
   var cards = BASES.map(function(b){
     var pac = DADOS[b] || {}; var d = pac.dados || {}; var ls = d.linhas || []; var k = d.kpis || {};
     var pen = ls.filter(ehPendente).length, exp = ls.length - pen;
-    var min = minutosDesde(pac.atualizadoEm);
+    var min = minutosDesde(pacote.atualizadoEm);
     if (ls.length) { algum = true; tot.rotas += ls.length; tot.exp += exp; tot.pend += pen; tot.rota += (k.emRota||0); }
     if (min !== null && (maisVelho === null || min > maisVelho)) maisVelho = min;
     var pctE = ls.length ? Math.round(exp/ls.length*100) : 0;
