@@ -7,106 +7,263 @@
 <title>Carregamento — Torre de Controle</title>
 <link rel="manifest" href="manifest.json">
 <style>
-  :root{
-    --void:#0b0f14; --panel:#141b23; --line:#243040; --ink:#e8edf3; --mute:#8b9bb0;
-    --amber:#f97316; --ok:#22c55e; --alert:#ef4444; --info:#38bdf8;
+  :root {
+    --void: #0b0f14;
+    --panel: #141b23;
+    --line: #2e3c50;
+    --ink: #f1f5f9;
+    --mute: #94a3b8;
+    --amber: #fbb019; /* Tom dourado/amarelo do botão */
+    --ok: #22c55e;
+    --alert: #ef4444;
+    --info: #38bdf8;
+    --base-font-size: 16px;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-  body{margin:0;background:var(--void);color:var(--ink);
-    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    padding-bottom:env(safe-area-inset-bottom)}
 
-  header{position:sticky;top:0;z-index:10;background:#000;border-bottom:1px solid var(--line);
-    padding:10px 14px calc(10px + env(safe-area-inset-top)) 14px}
-  .marca{font-weight:800;letter-spacing:-.02em;font-size:1.05rem}
-  .marca em{font-style:normal;color:var(--amber)}
-  .sub{color:var(--mute);font-size:.72rem;margin-top:2px}
-  .sub b{color:var(--ok)}
-  .sub.velho b{color:var(--alert)}
+  /* Modos de Tamanho de Fonte acionados pelo botão */
+  html { font-size: var(--base-font-size); }
+  html.f-grande { --base-font-size: 20px; }
+  html.f-extra { --base-font-size: 24px; }
 
-  .bases{display:flex;gap:6px;overflow-x:auto;padding:10px 14px;scrollbar-width:none}
-  .bases::-webkit-scrollbar{display:none}
-  .chip{flex:0 0 auto;padding:7px 14px;border-radius:999px;border:1px solid var(--line);
-    background:var(--panel);color:var(--mute);font-size:.82rem;font-weight:600;cursor:pointer}
-  .chip.on{background:var(--amber);border-color:var(--amber);color:#0b0f14}
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  
+  body {
+    margin: 0;
+    background: var(--void);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    padding-bottom: env(safe-area-inset-bottom);
+    line-height: 1.4;
+  }
 
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 14px 10px}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center}
-  .kpi .n{font-size:1.25rem;font-weight:800;line-height:1.1}
-  .kpi .l{font-size:.56rem;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
-  .kpi.p .n{color:var(--alert)} .kpi.s .n{color:var(--ok)} .kpi.r .n{color:var(--info)}
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #000;
+    border-bottom: 2px solid var(--line);
+    padding: 10px 14px calc(10px + env(safe-area-inset-top)) 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .header-info { flex: 1; min-width: 0; }
+  .marca { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.01em; }
+  .marca em { font-style: normal; color: var(--amber); }
+  .sub { color: var(--mute); font-size: 0.85rem; margin-top: 3px; font-weight: 600; }
+  .sub b { color: var(--ok); font-weight: 800; }
+  .sub.velho b { color: var(--alert); }
 
-  .barra{display:flex;gap:8px;align-items:center;padding:0 14px 10px}
-  .busca{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;
-    color:var(--ink);padding:9px 12px;font-size:.9rem;min-width:0}
-  .busca::placeholder{color:#5a6b80}
-  .tog{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
-    color:var(--mute);font-size:.78rem;font-weight:600;white-space:nowrap;cursor:pointer}
-  .tog.on{background:var(--alert);border-color:var(--alert);color:#fff}
+  /* Botão A+ conforme a imagem */
+  .btn-aplus {
+    background: transparent;
+    border: 2.5px solid var(--amber);
+    color: var(--amber);
+    border-radius: 999px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 10px;
+    font-size: 1.15rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px rgba(251, 176, 25, 0.2);
+    transition: transform 0.1s ease, background-color 0.2s ease;
+  }
+  .btn-aplus:active {
+    transform: scale(0.93);
+    background: rgba(251, 176, 25, 0.15);
+  }
 
-  .lista{padding:0 14px 24px;display:flex;flex-direction:column;gap:8px}
-  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
-    border-radius:10px;padding:11px 12px}
-  .card.pend{border-left-color:var(--alert)}
-  .card.exp{border-left-color:var(--ok);opacity:.72}
-  .l1{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .rota{font-weight:800;font-size:1rem;letter-spacing:-.01em}
-  .proc{font-size:.66rem;padding:3px 8px;border-radius:999px;background:#1e2936;color:var(--info);
-    white-space:nowrap;font-weight:600}
-  .proc.exp{background:rgba(34,197,94,.15);color:var(--ok)}
-  .mot{color:var(--mute);font-size:.82rem;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-  .tag{font-size:.68rem;background:#0f1620;border:1px solid var(--line);color:var(--mute);
-    padding:3px 8px;border-radius:6px}
-  .tag b{color:var(--ink);font-weight:600}
-  .tag.ns{background:rgba(239,68,68,.15);border-color:var(--alert);color:#fca5a5}
+  /* Bases */
+  .bases { display: flex; gap: 8px; overflow-x: auto; padding: 12px 14px; scrollbar-width: none; }
+  .bases::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .chip.on { background: var(--amber); border-color: var(--amber); color: #000000; }
 
-  .geral{padding:0 14px 24px;display:grid;grid-template-columns:1fr;gap:9px}
-  @media(min-width:640px){ .geral{grid-template-columns:1fr 1fr} }
-  .bcard{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
-    border-radius:12px;padding:13px 14px;cursor:pointer}
-  .bcard.frio{border-left-color:var(--line);opacity:.6}
-  .bh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .bnome{font-weight:800;font-size:1.05rem;letter-spacing:-.01em}
-  .bidade{font-size:.66rem;color:var(--mute)}
-  .bidade.velho{color:var(--alert)}
-  .bbarra{height:6px;background:#0f1620;border-radius:99px;overflow:hidden;margin:10px 0 8px;display:flex}
-  .bbarra i{display:block;height:100%}
-  .bbarra .exp{background:var(--ok)} .bbarra .pen{background:var(--alert)}
-  .bnums{display:flex;gap:14px;font-size:.72rem;color:var(--mute)}
-  .bnums b{font-size:.95rem;display:block;line-height:1.2}
-  .bnums .v b{color:var(--ok)} .bnums .p b{color:var(--alert)} .bnums .t b{color:var(--ink)}
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 14px 12px; }
+  .kpi {
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .kpi .n { font-size: 1.45rem; font-weight: 900; line-height: 1.1; }
+  .kpi .l {
+    font-size: 0.78rem;
+    color: var(--mute);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 4px;
+    font-weight: 700;
+  }
+  .kpi.p .n { color: var(--alert); }
+  .kpi.s .n { color: var(--ok); }
+  .kpi.r .n { color: var(--info); }
 
-  /* grupos por onda */
-  .grupo{margin-top:6px}
-  .gh{position:sticky;top:58px;z-index:5;display:flex;align-items:center;gap:8px;
-    background:var(--void);padding:9px 2px 7px;border-bottom:1px solid var(--line);margin-bottom:8px}
-  .gh .nome{font-size:.74rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
-  .gh .cnt{font-size:.66rem;color:var(--mute);margin-left:auto;white-space:nowrap}
-  .gh .cnt b{color:var(--alert)}
-  .gh .cnt b.ok{color:var(--ok)}
+  /* Barra de Busca e Filtros */
+  .barra { display: flex; gap: 8px; align-items: stretch; padding: 0 14px 14px; }
+  .busca {
+    flex: 1;
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    padding: 12px 14px;
+    font-size: 1rem;
+    min-width: 0;
+    font-weight: 600;
+  }
+  .busca::placeholder { color: var(--mute); }
+  .tog {
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 0.9rem;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
+  .tog.on { background: var(--alert); border-color: var(--alert); color: #fff; }
 
-  .vazio{text-align:center;color:var(--mute);padding:44px 20px;font-size:.9rem;line-height:1.6}
-  .rodape{text-align:center;color:#3d4a5c;font-size:.65rem;padding:16px;letter-spacing:.1em;text-transform:uppercase}
-  .carregando{text-align:center;color:var(--mute);padding:40px;font-size:.85rem}
-  .spin{display:inline-block;width:15px;height:15px;border:2px solid var(--line);
-    border-top-color:var(--amber);border-radius:50%;animation:g .7s linear infinite;vertical-align:-2px;margin-right:7px}
-  @keyframes g{to{transform:rotate(360deg)}}
+  /* Cards de Rotas */
+  .lista { padding: 0 14px 28px; display: flex; flex-direction: column; gap: 10px; }
+  .card {
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-left: 6px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .card.pend { border-left-color: var(--alert); }
+  .card.exp { border-left-color: var(--ok); opacity: 0.85; }
+  .l1 { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .rota { font-weight: 900; font-size: 1.25rem; letter-spacing: -0.01em; }
+  .proc {
+    font-size: 0.82rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #1e2936;
+    color: var(--info);
+    white-space: nowrap;
+    font-weight: 800;
+    border: 1px solid var(--line);
+  }
+  .proc.exp { background: rgba(34, 197, 94, 0.2); color: var(--ok); border-color: var(--ok); }
+  .mot { color: var(--ink); font-size: 1rem; font-weight: 600; margin-top: 6px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .tag {
+    font-size: 0.85rem;
+    background: var(--void);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .tag b { color: var(--amber); font-weight: 800; }
+  .tag.ns { background: rgba(239, 68, 68, 0.25); border-color: var(--alert); color: #fca5a5; font-weight: 800; }
+
+  /* Visão Geral (Geral) */
+  .geral { padding: 0 14px 24px; display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media(min-width: 640px) { .geral { grid-template-columns: 1fr 1fr; } }
+  .bcard {
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-left: 6px solid var(--amber);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+  }
+  .bcard.frio { border-left-color: var(--line); opacity: 0.7; }
+  .bh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .bnome { font-weight: 900; font-size: 1.35rem; }
+  .bidade { font-size: 0.85rem; color: var(--mute); font-weight: 700; }
+  .bidade.velho { color: var(--alert); }
+  .bbarra { height: 10px; background: var(--void); border-radius: 99px; overflow: hidden; margin: 12px 0 10px; display: flex; border: 1px solid var(--line); }
+  .bbarra i { display: block; height: 100%; }
+  .bbarra .exp { background: var(--ok); }
+  .bbarra .pen { background: var(--alert); }
+  .bnums { display: flex; gap: 16px; font-size: 0.85rem; color: var(--mute); font-weight: 600; }
+  .bnums b { font-size: 1.3rem; display: block; line-height: 1.2; font-weight: 900; }
+  .bnums .v b { color: var(--ok); }
+  .bnums .p b { color: var(--alert); }
+  .bnums .t b { color: var(--ink); }
+
+  /* Grupos por Onda */
+  .grupo { margin-top: 10px; }
+  .gh {
+    position: sticky;
+    top: 64px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--void);
+    padding: 10px 4px 8px;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 10px;
+  }
+  .gh .nome { font-size: 1rem; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; color: var(--amber); }
+  .gh .cnt { font-size: 0.85rem; color: var(--mute); margin-left: auto; white-space: nowrap; font-weight: 700; }
+  .gh .cnt b { color: var(--alert); }
+  .gh .cnt b.ok { color: var(--ok); }
+
+  .vazio { text-align: center; color: var(--mute); padding: 44px 20px; font-size: 1.05rem; line-height: 1.6; font-weight: 600; }
+  .rodape { text-align: center; color: var(--mute); font-size: 0.78rem; padding: 18px; font-weight: 600; }
+  .carregando { text-align: center; color: var(--mute); padding: 40px; font-size: 1rem; font-weight: 600; }
+  .spin {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--line);
+    border-top-color: var(--amber);
+    border-radius: 50%;
+    animation: g 0.7s linear infinite;
+    vertical-align: -4px;
+    margin-right: 8px;
+  }
+  @keyframes g { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="marca">Torre de <em>Controle</em> · Carregamento</div>
-  <div class="sub" id="sub">carregando…</div>
+  <div class="header-info">
+    <div class="marca">Torre de <em>Controle</em> · Carregamento</div>
+    <div class="sub" id="sub">carregando…</div>
+  </div>
+  <button class="btn-aplus" id="btnFonte" onclick="alternarFonte()" title="Aumentar tamanho do texto" aria-label="Aumentar tamanho da letra">
+    A+
+  </button>
 </header>
 
 <div class="bases" id="bases"></div>
 <div class="kpis" id="kpis"></div>
 
 <div class="barra" id="barraFiltros">
-  <input class="busca" id="busca" placeholder="rota, motorista, doca…" oninput="render()">
-  <div class="tog" id="tog" onclick="togglePend()">Só pendentes</div>
+  <input class="busca" id="busca" placeholder="Buscar rota, motorista, doca…" oninput="render()" aria-label="Buscar rota, motorista ou doca">
+  <button class="tog" id="tog" onclick="togglePend()">Só pendentes</button>
 </div>
 
 <div class="lista" id="lista">
@@ -124,6 +281,34 @@ var BASES = ['SMG1','SMG8','SMG14','SMG15'];
 function lsLer(k, padrao){ try { var v = localStorage.getItem(k); return v == null ? padrao : v; } catch(e){ return padrao; } }
 function lsGravar(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
 
+/* --- CONTROLE DO BOTÃO A+ --- */
+var nivelFonte = parseInt(lsLer('nivelFonte', '0'), 10); // 0 = Normal, 1 = Grande (A+), 2 = Extra Grande (A++)
+
+function aplicarFonteUI(){
+  var html = document.documentElement;
+  var btn = document.getElementById('btnFonte');
+  html.classList.remove('f-grande', 'f-extra');
+
+  if (nivelFonte === 1) {
+    html.classList.add('f-grande');
+    if (btn) btn.innerHTML = 'A++';
+  } else if (nivelFonte === 2) {
+    html.classList.add('f-extra');
+    if (btn) btn.innerHTML = 'A';
+  } else {
+    if (btn) btn.innerHTML = 'A+';
+  }
+}
+
+function alternarFonte(){
+  nivelFonte = (nivelFonte + 1) % 3;
+  lsGravar('nivelFonte', nivelFonte);
+  aplicarFonteUI();
+}
+
+aplicarFonteUI();
+
+/* --- LÓGICA DO PAINEL --- */
 var baseAtual = lsLer('base', 'GERAL');
 var soPendentes = lsLer('soPend','0') === '1';
 var DADOS = {};
@@ -131,7 +316,7 @@ var DADOS = {};
 function chips(){
   var todas = ['GERAL'].concat(BASES);
   document.getElementById('bases').innerHTML = todas.map(function(b){
-    return '<div class="chip'+(b===baseAtual?' on':'')+'" onclick="trocaBase(\'' + b + '\')">'+(b==='GERAL'?'▦ Geral':b)+'</div>';
+    return '<button class="chip'+(b===baseAtual?' on':'')+'" onclick="trocaBase(\'' + b + '\')">'+(b==='GERAL'?'▦ Geral':b)+'</button>';
   }).join('');
 }
 function trocaBase(b){ baseAtual=b; lsGravar('base',b); chips(); render(); }
@@ -179,7 +364,7 @@ async function buscar(){
               ? 'Ainda não há nada publicado.<br><br>Isso é normal antes da primeira publicação: '
                 + 'abra a Torre no PC e espere um ciclo.'
               : 'Não consegui ler os dados (HTTP ' + r.status + ').')
-          + '<br><br><span style="font-size:.72rem;color:#5a6b80;word-break:break-all">'
+          + '<br><br><span style="font-size:.85rem;color:var(--mute);word-break:break-all">'
           + url.split('?')[0] + '</span></div>';
       }
       return;
@@ -249,14 +434,14 @@ function render(){
   function cardHtml(l){
     var exp = !ehPendente(l);
     var tags = '';
-    if(l.doca)    tags += '<span class="tag">vaga <b>'+l.doca+'</b></span>';
+    if(l.doca)    tags += '<span class="tag">Vaga <b>'+l.doca+'</b></span>';
     if(l.cidade)  tags += '<span class="tag">'+l.cidade+'</span>';
     if(l.tempoMin!=='' && l.tempoMin!=null) tags += '<span class="tag">'+l.tempoMin+' min</span>';
     if(l.check==='NS') tags += '<span class="tag ns">NS</span>';
     return '<div class="card '+(exp?'exp':'pend')+'">'
       + '<div class="l1"><span class="rota">'+l.rota+'</span>'
       + '<span class="proc'+(exp?' exp':'')+'">'+(l.processo || l.statusLabel || '—')+'</span></div>'
-      + '<div class="mot">'+(l.motorista||'sem motorista')+'</div>'
+      + '<div class="mot">👤 '+(l.motorista||'Sem motorista')+'</div>'
       + (tags?('<div class="meta">'+tags+'</div>'):'')
       + '</div>';
   }
@@ -264,19 +449,16 @@ function render(){
   var html = Object.keys(grupos).map(Number).sort(function(a,b){ return a-b; }).map(function(n){
     var itens = grupos[n];
 
-    // Ordenação dentro da onda: vaga/doca da menor para a maior
     itens.sort(function(a, b){
       var docaA = a.doca != null ? String(a.doca).trim() : '';
       var docaB = b.doca != null ? String(b.doca).trim() : '';
 
-      // Itens sem vaga vão para o final
       if (!docaA && docaB) return 1;
       if (docaA && !docaB) return -1;
 
       var compVaga = docaA.localeCompare(docaB, undefined, { numeric: true, sensitivity: 'base' });
       if (compVaga !== 0) return compVaga;
 
-      // Desempate: rota alfabética
       return String(a.rota).localeCompare(String(b.rota));
     });
 
@@ -299,7 +481,7 @@ function renderGeral(){
   var cards = BASES.map(function(b){
     var pac = DADOS[b] || {}; var d = pac.dados || {}; var ls = d.linhas || []; var k = d.kpis || {};
     var pen = ls.filter(ehPendente).length, exp = ls.length - pen;
-    var min = minutosDesde(pacote.atualizadoEm);
+    var min = minutosDesde(pac.atualizadoEm);
     if (ls.length) { algum = true; tot.rotas += ls.length; tot.exp += exp; tot.pend += pen; tot.rota += (k.emRota||0); }
     if (min !== null && (maisVelho === null || min > maisVelho)) maisVelho = min;
     var pctE = ls.length ? Math.round(exp/ls.length*100) : 0;
@@ -310,9 +492,9 @@ function renderGeral(){
       + (min===null?'sem dados':(min<=3?'agora mesmo':'há '+min+' min'))+'</span></div>'
       + (ls.length
         ? '<div class="bbarra"><i class="exp" style="width:'+pctE+'%"></i><i class="pen" style="width:'+(100-pctE)+'%"></i></div>'
-          + '<div class="bnums"><span class="t"><b>'+ls.length+'</b>rotas</span>'
-          + '<span class="v"><b>'+exp+'</b>expedidas</span>'
-          + '<span class="p"><b>'+pen+'</b>pendentes</span></div>'
+          + '<div class="bnums"><span class="t"><b>'+ls.length+'</b>Rotas</span>'
+          + '<span class="v"><b>'+exp+'</b>Expedidas</span>'
+          + '<span class="p"><b>'+pen+'</b>Pendentes</span></div>'
         : '<div class="bnums" style="margin-top:8px;">Nada publicado ainda</div>')
       + '</div>';
   }).join('');
