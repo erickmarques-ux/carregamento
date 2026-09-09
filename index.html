@@ -68,6 +68,24 @@
   .mot{color:var(--ink);font-size:1rem;font-weight:600;margin-top:6px} .meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
   .tag{font-size:.85rem;background:var(--void);border:1px solid var(--line);color:var(--ink);padding:4px 10px;border-radius:6px;font-weight:600} .tag b{color:var(--amber);font-weight:800}
   .badge-paralelo{position:fixed;bottom:8px;right:8px;background:rgba(251,176,25,.15);border:1px solid var(--amber);color:var(--amber);font-size:.65rem;font-weight:800;padding:3px 8px;border-radius:6px;z-index:50}
+  /* MATRIZ onda×vaga (igual à Torre) */
+  .mxwrap{overflow-x:auto;border:1.5px solid var(--line);border-radius:14px;margin:0 0 20px;-webkit-overflow-scrolling:touch}
+  .mxtab{border-collapse:separate;border-spacing:0;min-width:100%}
+  .mxtab thead th{position:sticky;top:0;background:var(--panel2);color:var(--amber);font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;border-bottom:2px solid var(--line);white-space:nowrap;text-align:left;min-width:150px}
+  .mxtab thead th:first-child{left:0;z-index:3;min-width:50px}
+  .mxtab tbody th{position:sticky;left:0;z-index:2;background:var(--panel2);border-right:2px solid var(--line);border-bottom:1px solid var(--line);text-align:center;font-weight:900;font-size:1rem;padding:8px 6px;width:50px}
+  .mxtab tbody th .s{font-size:.54rem;color:var(--mute);font-weight:700}
+  .mxtab td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top;padding:5px 6px;min-width:150px}
+  .mxc{border-radius:9px;padding:7px 8px;border:1.5px solid var(--line);background:var(--panel);min-height:52px;position:relative}
+  .mxc.exp{border-left:4px solid var(--ok)} .mxc.pend{border-left:4px solid var(--alert)}
+  .mxc.kangu{background:rgba(251,176,25,.08);border-color:rgba(251,176,25,.5)}
+  .mxc.empty{border:1.5px dashed #28374b;background:transparent;display:flex;align-items:center;justify-content:center;color:#3f5169;font-size:.7rem;font-weight:700;min-height:52px}
+  .mxc .r{font-weight:900;font-size:.86rem} .mxc .t{font-size:.64rem;color:var(--mute);font-weight:700;margin-top:1px} .mxc.kangu .t{color:var(--amber)}
+  .mxc .mo{font-size:.66rem;color:var(--ink);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mxc .r2{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;align-items:center}
+  .mxc .st{font-size:.58rem;font-weight:800;padding:2px 6px;border-radius:20px} .mxc .st.exp{background:rgba(34,197,94,.18);color:#7ee2a0} .mxc .st.pend{background:rgba(239,68,68,.16);color:#fca5a5}
+  .mxc .pr{font-size:.56rem;font-weight:700;padding:2px 5px;border-radius:5px;background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.4);color:#7dd3fc}
+  .mxc .kf{position:absolute;top:5px;right:6px;font-size:.5rem;font-weight:900;color:#000;background:var(--amber);border-radius:4px;padding:1px 4px}
 </style>
 </head>
 <body>
@@ -163,7 +181,9 @@ function regDe(base,rota){
   var o=(ODC[base]||{})[rota]||{}; var l=liveDe(base,rota)||{}; var dd=(DISP[base]||{})[String(rota).toUpperCase()]||{};
   var processo = l.processo || dd.processo || '';
   var tempoMin = (l.tempoMin!=null&&l.tempoMin!=='')?l.tempoMin:(dd.tempoMin!=null?dd.tempoMin:'');
-  var onda = (o.onda!=null&&o.onda!=='')?ondaNum(o.onda):(dd.onda!=null?Number(dd.onda):(l.onda!=null?ondaNum(l.onda):null));
+  // ONDA: dispatch (wave real) é a fonte principal; ODC/planilha e live são fallback
+  var onda = (dd.onda!=null&&dd.onda!=='')?Number(dd.onda):null;
+  if(onda==null) onda = (o.onda!=null&&o.onda!=='')?ondaNum(o.onda):(l.onda!=null?ondaNum(l.onda):null);
   return { rota:rota, transportadora:o.transportadora||'', vaga:(o.vaga!=null?o.vaga:(l.doca!=null&&l.doca!==''?l.doca:null)),
     onda:onda, motorista:l.motorista||'', processo:processo, tempoMin:tempoMin, kangu:ehK(o.transportadora), exp:ehExpedida(processo,l) };
 }
@@ -199,26 +219,29 @@ function renderMapa(){
     + '<div class="kpi p"><div class="n">'+pen+'</div><div class="l">Pendentes</div></div>'
     + '<div class="kpi r"><div class="n">'+kn+'</div><div class="l">Kangu</div></div>';
   if(!vis.length){ document.getElementById('lista').innerHTML='<div class="vazio">Nada nesse filtro.</div>'; return; }
-  // agrupa por onda, ordena por vaga
-  var grupos={}; vis.forEach(function(r){ var n=(r.onda!=null?r.onda:99); (grupos[n]=grupos[n]||[]).push(r); });
-  function card(r){
-    var st = r.exp?'<span class="mst exp">✓ expedida</span>':'<span class="mst pen">● pendente</span>';
-    var proc = r.processo?'<span class="mtag proc">'+r.processo+'</span>':'';
-    var tempo=(r.tempoMin!=null&&r.tempoMin!=='')?'<span class="mtag">⏱ '+r.tempoMin+' min</span>':'';
-    return '<div class="mcard '+(r.exp?'exp':'pend')+(r.kangu?' kangu':'')+'">'
-      + '<div class="mvaga"><div class="vn">'+(r.vaga!=null?r.vaga:'—')+'</div><div class="vl">vaga</div></div>'
-      + '<div class="mbody"><div class="mrow1"><span class="mrota">'+r.rota+'</span>'+(r.kangu?'<span class="mkflag">KANGU</span>':'')+'</div>'
-      + '<div class="mtransp">'+(r.transportadora||'—')+'</div>'
-      + (r.motorista?'<div class="mmot">👤 '+r.motorista+'</div>':'')
-      + '<div class="mmeta">'+st+proc+tempo+'</div></div></div>';
+  // MATRIZ igual à Torre: ondas nas colunas, vagas nas linhas, gaiola (rota) dentro
+  var ondas={}, vagasSet={};
+  vis.forEach(function(r){ var on=(r.onda!=null?r.onda:99); ondas[on]=1; if(r.vaga!=null) vagasSet[r.vaga]=1; });
+  var ondasArr=Object.keys(ondas).map(Number).sort(function(a,b){return a-b;}); if(!ondasArr.length) ondasArr=[1];
+  var vagasArr=Object.keys(vagasSet).map(Number).sort(function(a,b){return a-b;});
+  function ondaKey(r){ return r.onda!=null?r.onda:99; }
+  function acha(v,o){ for(var i=0;i<vis.length;i++){ if(vis[i].vaga===v && ondaKey(vis[i])===o) return vis[i]; } return null; }
+  function celula(v,o){
+    var r=acha(v,o); if(!r) return '<div class="mxc empty">—</div>';
+    var st=r.exp?'<span class="st exp">✓ exped.</span>':'<span class="st pend">● pend.</span>';
+    var pr=r.processo?'<span class="pr">'+r.processo+'</span>':'';
+    var tp=(r.tempoMin!=null&&r.tempoMin!=='')?'<span class="pr" style="background:transparent;border-color:var(--line);color:var(--ink)">⏱'+r.tempoMin+'m</span>':'';
+    return '<div class="mxc '+(r.exp?'exp':'pend')+(r.kangu?' kangu':'')+'">'+(r.kangu?'<span class="kf">K</span>':'')
+      +'<div class="r">'+r.rota+'</div><div class="t">'+(r.transportadora||'—')+'</div>'
+      +(r.motorista?'<div class="mo">👤 '+r.motorista+'</div>':'')
+      +'<div class="r2">'+st+pr+tp+'</div></div>';
   }
-  var html = Object.keys(grupos).map(Number).sort(function(a,b){return a-b;}).map(function(n){
-    var itens=grupos[n].sort(function(a,b){ var va=a.vaga==null?1e9:a.vaga, vb=b.vaga==null?1e9:b.vaga; return va-vb || String(a.rota).localeCompare(String(b.rota)); });
-    var pen=itens.filter(function(r){return !r.exp;}).length;
-    var resumo = pen?('<b>'+pen+'</b> pendente'+(pen>1?'s':'')+' de '+itens.length):('<b class="ok">todas expedidas</b> ('+itens.length+')');
-    return '<div class="grupo"><div class="gh"><span class="nome">'+ondaLabel(n)+'</span><span class="cnt">'+resumo+'</span></div>'+itens.map(card).join('')+'</div>';
-  }).join('');
-  document.getElementById('lista').innerHTML=html;
+  var h='<div class="mxwrap"><table class="mxtab"><thead><tr><th>Vaga</th>'+ondasArr.map(function(o){return '<th>'+ondaLabel(o)+'</th>';}).join('')+'</tr></thead><tbody>';
+  vagasArr.forEach(function(v){
+    h+='<tr><th>'+v+'<div class="s">vaga</div></th>'+ondasArr.map(function(o){return '<td>'+celula(v,o)+'</td>';}).join('')+'</tr>';
+  });
+  h+='</tbody></table></div>';
+  document.getElementById('lista').innerHTML=h;
 }
 
 function renderLista(){
