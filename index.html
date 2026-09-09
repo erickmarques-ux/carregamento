@@ -181,9 +181,8 @@ function regDe(base,rota){
   var o=(ODC[base]||{})[rota]||{}; var l=liveDe(base,rota)||{}; var dd=(DISP[base]||{})[String(rota).toUpperCase()]||{};
   var processo = l.processo || dd.processo || '';
   var tempoMin = (l.tempoMin!=null&&l.tempoMin!=='')?l.tempoMin:(dd.tempoMin!=null?dd.tempoMin:'');
-  // ONDA: dispatch (wave real) é a fonte principal; ODC/planilha e live são fallback
-  var onda = (dd.onda!=null&&dd.onda!=='')?Number(dd.onda):null;
-  if(onda==null) onda = (o.onda!=null&&o.onda!=='')?ondaNum(o.onda):(l.onda!=null?ondaNum(l.onda):null);
+  // ONDA vem do ODC/planilha (fonte de verdade); o dispatch NÃO define onda. Live é fallback.
+  var onda = (o.onda!=null&&o.onda!=='')?ondaNum(o.onda):(l.onda!=null?ondaNum(l.onda):null);
   return { rota:rota, transportadora:o.transportadora||'', vaga:(o.vaga!=null?o.vaga:(l.doca!=null&&l.doca!==''?l.doca:null)),
     onda:onda, motorista:l.motorista||'', processo:processo, tempoMin:tempoMin, kangu:ehK(o.transportadora), exp:ehExpedida(processo,l) };
 }
