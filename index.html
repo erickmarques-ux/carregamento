@@ -5,519 +5,246 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f14">
 <title>Carregamento — Torre de Controle</title>
-<link rel="manifest" href="manifest.json">
 <style>
-  :root {
-    --void: #0b0f14;
-    --panel: #141b23;
-    --line: #2e3c50;
-    --ink: #f1f5f9;
-    --mute: #94a3b8;
-    --amber: #fbb019; /* Tom dourado/amarelo do botão */
-    --ok: #22c55e;
-    --alert: #ef4444;
-    --info: #38bdf8;
-    --base-font-size: 16px;
-  }
-
-  /* Modos de Tamanho de Fonte acionados pelo botão */
-  html { font-size: var(--base-font-size); }
-  html.f-grande { --base-font-size: 20px; }
-  html.f-extra { --base-font-size: 24px; }
-
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  
-  body {
-    margin: 0;
-    background: var(--void);
-    color: var(--ink);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    padding-bottom: env(safe-area-inset-bottom);
-    line-height: 1.4;
-  }
-
-  header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: #000;
-    border-bottom: 2px solid var(--line);
-    padding: 10px 14px calc(10px + env(safe-area-inset-top)) 14px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .header-info { flex: 1; min-width: 0; }
-  .marca { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.01em; }
-  .marca em { font-style: normal; color: var(--amber); }
-  .sub { color: var(--mute); font-size: 0.85rem; margin-top: 3px; font-weight: 600; }
-  .sub b { color: var(--ok); font-weight: 800; }
-  .sub.velho b { color: var(--alert); }
-
-  /* Botão A+ conforme a imagem */
-  .btn-aplus {
-    background: transparent;
-    border: 2.5px solid var(--amber);
-    color: var(--amber);
-    border-radius: 999px;
-    min-width: 44px;
-    height: 44px;
-    padding: 0 10px;
-    font-size: 1.15rem;
-    font-weight: 900;
-    letter-spacing: -0.5px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 10px rgba(251, 176, 25, 0.2);
-    transition: transform 0.1s ease, background-color 0.2s ease;
-  }
-  .btn-aplus:active {
-    transform: scale(0.93);
-    background: rgba(251, 176, 25, 0.15);
-  }
-
-  /* Bases */
-  .bases { display: flex; gap: 8px; overflow-x: auto; padding: 12px 14px; scrollbar-width: none; }
-  .bases::-webkit-scrollbar { display: none; }
-  .chip {
-    flex: 0 0 auto;
-    padding: 9px 16px;
-    border-radius: 999px;
-    border: 1.5px solid var(--line);
-    background: var(--panel);
-    color: var(--ink);
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .chip.on { background: var(--amber); border-color: var(--amber); color: #000000; }
-
-  /* KPIs */
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 14px 12px; }
-  .kpi {
-    background: var(--panel);
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 6px;
-    text-align: center;
-  }
-  .kpi .n { font-size: 1.45rem; font-weight: 900; line-height: 1.1; }
-  .kpi .l {
-    font-size: 0.78rem;
-    color: var(--mute);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-top: 4px;
-    font-weight: 700;
-  }
-  .kpi.p .n { color: var(--alert); }
-  .kpi.s .n { color: var(--ok); }
-  .kpi.r .n { color: var(--info); }
-
-  /* Barra de Busca e Filtros */
-  .barra { display: flex; gap: 8px; align-items: stretch; padding: 0 14px 14px; }
-  .busca {
-    flex: 1;
-    background: var(--panel);
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    color: var(--ink);
-    padding: 12px 14px;
-    font-size: 1rem;
-    min-width: 0;
-    font-weight: 600;
-  }
-  .busca::placeholder { color: var(--mute); }
-  .tog {
-    padding: 12px 16px;
-    border-radius: 10px;
-    border: 1.5px solid var(--line);
-    background: var(--panel);
-    color: var(--ink);
-    font-size: 0.9rem;
-    font-weight: 800;
-    white-space: nowrap;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-  }
-  .tog.on { background: var(--alert); border-color: var(--alert); color: #fff; }
-
-  /* Cards de Rotas */
-  .lista { padding: 0 14px 28px; display: flex; flex-direction: column; gap: 10px; }
-  .card {
-    background: var(--panel);
-    border: 1.5px solid var(--line);
-    border-left: 6px solid var(--line);
-    border-radius: 12px;
-    padding: 14px;
-  }
-  .card.pend { border-left-color: var(--alert); }
-  .card.exp { border-left-color: var(--ok); opacity: 0.85; }
-  .l1 { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .rota { font-weight: 900; font-size: 1.25rem; letter-spacing: -0.01em; }
-  .proc {
-    font-size: 0.82rem;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: #1e2936;
-    color: var(--info);
-    white-space: nowrap;
-    font-weight: 800;
-    border: 1px solid var(--line);
-  }
-  .proc.exp { background: rgba(34, 197, 94, 0.2); color: var(--ok); border-color: var(--ok); }
-  .mot { color: var(--ink); font-size: 1rem; font-weight: 600; margin-top: 6px; }
-  .meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
-  .tag {
-    font-size: 0.85rem;
-    background: var(--void);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-weight: 600;
-  }
-  .tag b { color: var(--amber); font-weight: 800; }
-  .tag.ns { background: rgba(239, 68, 68, 0.25); border-color: var(--alert); color: #fca5a5; font-weight: 800; }
-
-  /* Visão Geral (Geral) */
-  .geral { padding: 0 14px 24px; display: grid; grid-template-columns: 1fr; gap: 12px; }
-  @media(min-width: 640px) { .geral { grid-template-columns: 1fr 1fr; } }
-  .bcard {
-    background: var(--panel);
-    border: 1.5px solid var(--line);
-    border-left: 6px solid var(--amber);
-    border-radius: 12px;
-    padding: 16px;
-    cursor: pointer;
-  }
-  .bcard.frio { border-left-color: var(--line); opacity: 0.7; }
-  .bh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .bnome { font-weight: 900; font-size: 1.35rem; }
-  .bidade { font-size: 0.85rem; color: var(--mute); font-weight: 700; }
-  .bidade.velho { color: var(--alert); }
-  .bbarra { height: 10px; background: var(--void); border-radius: 99px; overflow: hidden; margin: 12px 0 10px; display: flex; border: 1px solid var(--line); }
-  .bbarra i { display: block; height: 100%; }
-  .bbarra .exp { background: var(--ok); }
-  .bbarra .pen { background: var(--alert); }
-  .bnums { display: flex; gap: 16px; font-size: 0.85rem; color: var(--mute); font-weight: 600; }
-  .bnums b { font-size: 1.3rem; display: block; line-height: 1.2; font-weight: 900; }
-  .bnums .v b { color: var(--ok); }
-  .bnums .p b { color: var(--alert); }
-  .bnums .t b { color: var(--ink); }
-
-  /* Grupos por Onda */
-  .grupo { margin-top: 10px; }
-  .gh {
-    position: sticky;
-    top: 64px;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--void);
-    padding: 10px 4px 8px;
-    border-bottom: 2px solid var(--line);
-    margin-bottom: 10px;
-  }
-  .gh .nome { font-size: 1rem; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; color: var(--amber); }
-  .gh .cnt { font-size: 0.85rem; color: var(--mute); margin-left: auto; white-space: nowrap; font-weight: 700; }
-  .gh .cnt b { color: var(--alert); }
-  .gh .cnt b.ok { color: var(--ok); }
-
-  .vazio { text-align: center; color: var(--mute); padding: 44px 20px; font-size: 1.05rem; line-height: 1.6; font-weight: 600; }
-  .rodape { text-align: center; color: var(--mute); font-size: 0.78rem; padding: 18px; font-weight: 600; }
-  .carregando { text-align: center; color: var(--mute); padding: 40px; font-size: 1rem; font-weight: 600; }
-  .spin {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid var(--line);
-    border-top-color: var(--amber);
-    border-radius: 50%;
-    animation: g 0.7s linear infinite;
-    vertical-align: -4px;
-    margin-right: 8px;
-  }
-  @keyframes g { to { transform: rotate(360deg); } }
+  :root{--void:#0b0f14;--panel:#141b23;--panel2:#0f1622;--line:#2e3c50;--ink:#f1f5f9;--mute:#94a3b8;--amber:#fbb019;--ok:#22c55e;--alert:#ef4444;--info:#38bdf8;--base-font-size:16px}
+  html{font-size:var(--base-font-size)} html.f-grande{--base-font-size:20px} html.f-extra{--base-font-size:24px}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--void);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;padding-bottom:env(safe-area-inset-bottom);line-height:1.4}
+  header{position:sticky;top:0;z-index:20;background:#000;border-bottom:2px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-top)) 14px;display:flex;justify-content:space-between;align-items:center}
+  .header-info{flex:1;min-width:0}
+  .marca{font-weight:800;font-size:1.15rem;letter-spacing:-.01em} .marca em{font-style:normal;color:var(--amber)}
+  .sub{color:var(--mute);font-size:.85rem;margin-top:3px;font-weight:600} .sub b{color:var(--ok);font-weight:800} .sub.velho b{color:var(--alert)}
+  .btn-aplus{background:transparent;border:2.5px solid var(--amber);color:var(--amber);border-radius:999px;min-width:44px;height:44px;padding:0 10px;font-size:1.15rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .btn-aplus:active{transform:scale(.93);background:rgba(251,176,25,.15)}
+  /* tabs Lista | Mapa */
+  .tabs{display:flex;gap:8px;padding:10px 14px 4px}
+  .tab{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font-weight:800;font-size:.95rem;cursor:pointer;text-align:center}
+  .tab.on{background:var(--amber);border-color:var(--amber);color:#000}
+  .bases{display:flex;gap:8px;overflow-x:auto;padding:10px 14px;scrollbar-width:none} .bases::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;padding:9px 16px;border-radius:999px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font-size:.95rem;font-weight:700;cursor:pointer}
+  .chip.on{background:var(--amber);border-color:var(--amber);color:#000}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px 12px}
+  .kpi{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center}
+  .kpi .n{font-size:1.45rem;font-weight:900;line-height:1.1} .kpi .l{font-size:.72rem;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin-top:4px;font-weight:700}
+  .kpi.p .n{color:var(--alert)} .kpi.s .n{color:var(--ok)} .kpi.r .n{color:var(--info)}
+  .barra{display:flex;gap:8px;align-items:stretch;padding:0 14px 10px;flex-wrap:wrap}
+  .busca{flex:1;min-width:150px;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;color:var(--ink);padding:12px 14px;font-size:1rem;font-weight:600}
+  .busca::placeholder{color:var(--mute)}
+  .tog{padding:11px 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font-size:.85rem;font-weight:800;white-space:nowrap;cursor:pointer;display:flex;align-items:center}
+  .tog.on{background:var(--alert);border-color:var(--alert);color:#fff}
+  .tog.k.on{background:var(--amber);border-color:var(--amber);color:#000}
+  /* grupos por onda */
+  .grupo{margin-top:10px} .lista{padding:0 14px 28px}
+  .gh{position:sticky;top:118px;z-index:10;display:flex;align-items:center;gap:8px;background:var(--void);padding:10px 4px 8px;border-bottom:2px solid var(--line);margin-bottom:10px}
+  .gh .nome{font-size:1rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:var(--amber)}
+  .gh .cnt{font-size:.85rem;color:var(--mute);margin-left:auto;white-space:nowrap;font-weight:700} .gh .cnt b{color:var(--alert)} .gh .cnt b.ok{color:var(--ok)}
+  /* card do mapa: vaga + rota */
+  .mcard{display:flex;gap:12px;align-items:stretch;background:var(--panel);border:1.5px solid var(--line);border-left:6px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .mcard.pend{border-left-color:var(--alert)} .mcard.exp{border-left-color:var(--ok)}
+  .mcard.kangu{background:rgba(251,176,25,.07);border-color:rgba(251,176,25,.45)}
+  .mvaga{flex:0 0 auto;width:52px;text-align:center;border-right:1px solid var(--line);padding-right:10px;display:flex;flex-direction:column;justify-content:center}
+  .mvaga .vn{font-size:1.5rem;font-weight:900;line-height:1} .mvaga .vl{font-size:.6rem;color:var(--mute);font-weight:700;text-transform:uppercase}
+  .mbody{flex:1;min-width:0}
+  .mrow1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .mrota{font-weight:900;font-size:1.15rem} .mkflag{font-size:.62rem;font-weight:900;color:#000;background:var(--amber);border-radius:5px;padding:2px 7px}
+  .mtransp{font-size:.85rem;color:var(--mute);font-weight:700;margin-top:2px} .mcard.kangu .mtransp{color:var(--amber)}
+  .mmot{font-size:.9rem;color:var(--ink);font-weight:600;margin-top:4px}
+  .mmeta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+  .mst{font-size:.72rem;font-weight:800;padding:3px 9px;border-radius:999px}
+  .mst.exp{background:rgba(34,197,94,.2);color:#7ee2a0} .mst.pen{background:rgba(239,68,68,.18);color:#fca5a5}
+  .mtag{font-size:.75rem;font-weight:700;background:var(--void);border:1px solid var(--line);color:var(--ink);padding:3px 9px;border-radius:6px}
+  .mtag.proc{background:rgba(56,189,248,.14);border-color:rgba(56,189,248,.4);color:#7dd3fc}
+  .vazio{text-align:center;color:var(--mute);padding:40px 20px;font-size:1.05rem;line-height:1.6;font-weight:600}
+  .rodape{text-align:center;color:var(--mute);font-size:.78rem;padding:18px;font-weight:600}
+  .carregando{text-align:center;color:var(--mute);padding:40px;font-size:1rem;font-weight:600}
+  .spin{display:inline-block;width:20px;height:20px;border:3px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:g .7s linear infinite;vertical-align:-4px;margin-right:8px}
+  @keyframes g{to{transform:rotate(360deg)}}
+  /* lista simples (mesma da produção) */
+  .card{background:var(--panel);border:1.5px solid var(--line);border-left:6px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+  .card.pend{border-left-color:var(--alert)} .card.exp{border-left-color:var(--ok);opacity:.9}
+  .l1{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .rota{font-weight:900;font-size:1.25rem} .proc{font-size:.82rem;padding:4px 10px;border-radius:999px;background:#1e2936;color:var(--info);font-weight:800;border:1px solid var(--line)}
+  .proc.exp{background:rgba(34,197,94,.2);color:var(--ok);border-color:var(--ok)}
+  .mot{color:var(--ink);font-size:1rem;font-weight:600;margin-top:6px} .meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .tag{font-size:.85rem;background:var(--void);border:1px solid var(--line);color:var(--ink);padding:4px 10px;border-radius:6px;font-weight:600} .tag b{color:var(--amber);font-weight:800}
+  .badge-paralelo{position:fixed;bottom:8px;right:8px;background:rgba(251,176,25,.15);border:1px solid var(--amber);color:var(--amber);font-size:.65rem;font-weight:800;padding:3px 8px;border-radius:6px;z-index:50}
 </style>
 </head>
 <body>
-
 <header>
   <div class="header-info">
     <div class="marca">Torre de <em>Controle</em> · Carregamento</div>
     <div class="sub" id="sub">carregando…</div>
   </div>
-  <button class="btn-aplus" id="btnFonte" onclick="alternarFonte()" title="Aumentar tamanho do texto" aria-label="Aumentar tamanho da letra">
-    A+
-  </button>
+  <button class="btn-aplus" id="btnFonte" onclick="alternarFonte()" aria-label="Aumentar letra">A+</button>
 </header>
 
+<div class="tabs">
+  <button class="tab" id="tab-lista" onclick="setVista('lista')">☰ Lista</button>
+  <button class="tab on" id="tab-mapa" onclick="setVista('mapa')">▦ Mapa de Vagas</button>
+</div>
 <div class="bases" id="bases"></div>
 <div class="kpis" id="kpis"></div>
-
-<div class="barra" id="barraFiltros">
-  <input class="busca" id="busca" placeholder="Buscar rota, motorista, doca…" oninput="render()" aria-label="Buscar rota, motorista ou doca">
+<div class="barra" id="barra">
+  <input class="busca" id="busca" placeholder="Buscar rota, motorista, vaga, transportadora…" oninput="render()">
+  <button class="tog k" id="togK" onclick="toggleKangu()">Só Kangu</button>
   <button class="tog" id="tog" onclick="togglePend()">Só pendentes</button>
 </div>
-
-<div class="lista" id="lista">
-  <div class="carregando"><span class="spin"></span>buscando dados…</div>
-</div>
+<div class="lista" id="lista"><div class="carregando"><span class="spin"></span>buscando dados…</div></div>
 <div class="rodape" id="rodape">Data Analytics &amp; Monitoring · atualiza sozinho a cada 20s</div>
+<div class="badge-paralelo">VERSÃO PARALELA · MAPA</div>
 
 <script>
-var WORKER_URL = 'https://worker-kangu.erick-marques.workers.dev';
-
-function urlDados(){ return WORKER_URL + '?t=' + Date.now(); }
-
+var WORKER_KANGU = 'https://worker-kangu.erick-marques.workers.dev';   // carregamento (produção)
+var WORKER_ODC   = 'https://worker-odc.erick-marques.workers.dev';     // ODC + dispatch
 var BASES = ['SMG1','SMG8','SMG14','SMG15'];
+function lsLer(k,p){ try{ var v=localStorage.getItem(k); return v==null?p:v; }catch(e){ return p; } }
+function lsGravar(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
-function lsLer(k, padrao){ try { var v = localStorage.getItem(k); return v == null ? padrao : v; } catch(e){ return padrao; } }
-function lsGravar(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
-
-/* --- CONTROLE DO BOTÃO A+ --- */
-var nivelFonte = parseInt(lsLer('nivelFonte', '0'), 10); // 0 = Normal, 1 = Grande (A+), 2 = Extra Grande (A++)
-
-function aplicarFonteUI(){
-  var html = document.documentElement;
-  var btn = document.getElementById('btnFonte');
-  html.classList.remove('f-grande', 'f-extra');
-
-  if (nivelFonte === 1) {
-    html.classList.add('f-grande');
-    if (btn) btn.innerHTML = 'A++';
-  } else if (nivelFonte === 2) {
-    html.classList.add('f-extra');
-    if (btn) btn.innerHTML = 'A';
-  } else {
-    if (btn) btn.innerHTML = 'A+';
-  }
-}
-
-function alternarFonte(){
-  nivelFonte = (nivelFonte + 1) % 3;
-  lsGravar('nivelFonte', nivelFonte);
-  aplicarFonteUI();
-}
-
+var nivelFonte = parseInt(lsLer('nivelFonte','0'),10);
+function aplicarFonteUI(){ var h=document.documentElement,b=document.getElementById('btnFonte'); h.classList.remove('f-grande','f-extra'); if(nivelFonte===1){h.classList.add('f-grande');b.innerHTML='A++';}else if(nivelFonte===2){h.classList.add('f-extra');b.innerHTML='A';}else{b.innerHTML='A+';} }
+function alternarFonte(){ nivelFonte=(nivelFonte+1)%3; lsGravar('nivelFonte',nivelFonte); aplicarFonteUI(); }
 aplicarFonteUI();
 
-/* --- LÓGICA DO PAINEL --- */
-var baseAtual = lsLer('base', 'GERAL');
-var soPendentes = lsLer('soPend','0') === '1';
-var DADOS = {};
+var baseAtual = lsLer('base','SMG15');
+if (baseAtual==='GERAL') baseAtual='SMG15';
+var vista = lsLer('vista','mapa');
+var soPend = lsLer('soPend','0')==='1';
+var soKangu = lsLer('soKangu','0')==='1';
+var CARR = {};   // base -> {atualizadoEm, linhas, kpis, operador}
+var ODC = {};    // base -> {rota:{transportadora,vaga,doca,onda}}
+var DISP = {};   // base -> {ROTA:{processo,tempoMin,onda}}
 
-function chips(){
-  var todas = ['GERAL'].concat(BASES);
-  document.getElementById('bases').innerHTML = todas.map(function(b){
-    return '<button class="chip'+(b===baseAtual?' on':'')+'" onclick="trocaBase(\'' + b + '\')">'+(b==='GERAL'?'▦ Geral':b)+'</button>';
-  }).join('');
-}
-function trocaBase(b){ baseAtual=b; lsGravar('base',b); chips(); render(); }
-function togglePend(){ soPendentes=!soPendentes; lsGravar('soPend', soPendentes?'1':'0'); render(); }
+function chips(){ document.getElementById('bases').innerHTML = BASES.map(function(b){ return '<button class="chip'+(b===baseAtual?' on':'')+'" onclick="trocaBase(\''+b+'\')">'+b+'</button>'; }).join(''); }
+function trocaBase(b){ baseAtual=b; lsGravar('base',b); chips(); carregarODC(b); render(); }
+function setVista(v){ vista=v; lsGravar('vista',v); document.getElementById('tab-lista').classList.toggle('on',v==='lista'); document.getElementById('tab-mapa').classList.toggle('on',v==='mapa'); document.getElementById('togK').style.display = v==='mapa'?'':'none'; render(); }
+function togglePend(){ soPend=!soPend; lsGravar('soPend',soPend?'1':'0'); render(); }
+function toggleKangu(){ soKangu=!soKangu; lsGravar('soKangu',soKangu?'1':'0'); document.getElementById('togK').classList.toggle('on',soKangu); render(); }
 
-function ondaNum(v){
-  var n = parseInt(String(v==null?'':v).replace(/\D/g,''), 10);
-  return isNaN(n) ? 99 : n;
-}
-function ondaLabel(v){
-  var n = ondaNum(v);
-  return n === 99 ? 'Sem onda' : (n + 'ª onda');
-}
+function ondaNum(v){ var m=String(v==null?'':v).match(/(\d+)/); return m?Number(m[1]):99; }
+function ondaLabel(v){ var n=ondaNum(v); return n===99?'Sem onda':(n+'ª onda'); }
+function ehK(t){ return String(t||'').toLowerCase().indexOf('kangu')>=0; }
+function minutosDesde(iso){ if(!iso) return null; var d=new Date(iso); if(isNaN(d)) return null; return Math.round((Date.now()-d.getTime())/60000); }
+function diag(t){ var el=document.getElementById('rodape'); if(el) el.innerHTML=t; }
 
-function ehExpedida(r){ return String(r.processo||'').trim().toLowerCase()==='expedida'; }
-
-function ehPendente(r){
-  var p = String(r.processo||'').trim().toLowerCase();
-  if (p === 'expedida') return false;
-  if (!p && (r.subiu || r.status === 'SUBIU' || r.status === 'EM_ROTA' || r.status === 'FINALIZADA')) return false;
-  return true;
-}
-
-function minutosDesde(iso){
-  if(!iso) return null;
-  var d=new Date(iso); if(isNaN(d)) return null;
-  return Math.round((Date.now()-d.getTime())/60000);
-}
-
-function diag(txt){
-  var el = document.getElementById('rodape');
-  if (el) el.innerHTML = txt;
-}
-
-async function buscar(){
-  var url = urlDados();
+// ---- fetch carregamento (worker-kangu) ----
+async function buscarCarr(){
   try{
-    var r = await fetch(url, {cache:'no-store'});
-    diag('HTTP ' + r.status + ' &middot; ' + new Date().toLocaleTimeString());
-    if(!r.ok){
-      if(!Object.keys(DADOS).length){
-        document.getElementById('lista').innerHTML =
-          '<div class="vazio">'
-          + (r.status === 404
-              ? 'Ainda não há nada publicado.<br><br>Isso é normal antes da primeira publicação: '
-                + 'abra a Torre no PC e espere um ciclo.'
-              : 'Não consegui ler os dados (HTTP ' + r.status + ').')
-          + '<br><br><span style="font-size:.85rem;color:var(--mute);word-break:break-all">'
-          + url.split('?')[0] + '</span></div>';
-      }
-      return;
-    }
-    var j = await r.json();
-    var bases = j.bases || {};
-    DADOS = {};
-    Object.keys(bases).forEach(function(b){
-      var p = bases[b] || {};
-      DADOS[b] = { atualizadoEm: p.atualizadoEm, dados: { kpis: p.kpis, linhas: p.linhas, operador: p.operador } };
-    });
+    var r = await fetch(WORKER_KANGU+'?t='+Date.now(), {cache:'no-store'});
+    diag('HTTP '+r.status+' &middot; '+new Date().toLocaleTimeString());
+    if(!r.ok) return;
+    var j = await r.json(); var bases = j.bases||{};
+    CARR = {};
+    Object.keys(bases).forEach(function(b){ var p=bases[b]||{}; CARR[b]={atualizadoEm:p.atualizadoEm, linhas:p.linhas||[], kpis:p.kpis||{}, operador:p.operador||''}; });
     render();
-  }catch(e){
-    diag('falha de rede &middot; ' + new Date().toLocaleTimeString());
-    if(!Object.keys(DADOS).length){
-      document.getElementById('lista').innerHTML =
-        '<div class="vazio">Falha de rede ao buscar os dados.<br>Puxe para atualizar.</div>';
-    }
-  }
+  }catch(e){ diag('falha de rede &middot; '+new Date().toLocaleTimeString()); }
+}
+// ---- fetch ODC + dispatch (worker-odc) da base atual ----
+async function carregarODC(base){
+  try{
+    var r1 = await fetch(WORKER_ODC+'/odc?base='+base+'&t='+Date.now(), {cache:'no-store'});
+    var j1 = r1.ok ? await r1.json() : {ciclos:{}};
+    var m = {}; var ciclos=(j1&&j1.ciclos)||{};
+    Object.keys(ciclos).forEach(function(c){ (ciclos[c].rotas||[]).forEach(function(x){ if(x&&x.rota) m[x.rota]=x; }); });
+    ODC[base]=m;
+  }catch(e){ ODC[base]=ODC[base]||{}; }
+  try{
+    var r2 = await fetch(WORKER_ODC+'/dispatch?base='+base+'&t='+Date.now(), {cache:'no-store'});
+    var j2 = r2.ok ? await r2.json() : {mapa:{}};
+    DISP[base] = (j2&&j2.mapa)||{};
+  }catch(e){ DISP[base]=DISP[base]||{}; }
+  render();
+}
+
+// ---- registro unificado por rota (ODC + carregamento + dispatch) ----
+function liveDe(base,rota){ var ls=(CARR[base]&&CARR[base].linhas)||[]; for(var i=0;i<ls.length;i++){ if(String(ls[i].rota)===String(rota)) return ls[i]; } return null; }
+function ehExpedida(processo,live){ if(String(processo||'').toLowerCase().indexOf('expedida')>=0) return true; if(live){ var p=String(live.processo||'').toLowerCase(); if(p==='expedida') return true; if(!p&&(live.subiu||live.status==='SUBIU'||live.status==='EM_ROTA'||live.status==='FINALIZADA')) return true; } return false; }
+function regDe(base,rota){
+  var o=(ODC[base]||{})[rota]||{}; var l=liveDe(base,rota)||{}; var dd=(DISP[base]||{})[String(rota).toUpperCase()]||{};
+  var processo = l.processo || dd.processo || '';
+  var tempoMin = (l.tempoMin!=null&&l.tempoMin!=='')?l.tempoMin:(dd.tempoMin!=null?dd.tempoMin:'');
+  var onda = (o.onda!=null&&o.onda!=='')?ondaNum(o.onda):(dd.onda!=null?Number(dd.onda):(l.onda!=null?ondaNum(l.onda):null));
+  return { rota:rota, transportadora:o.transportadora||'', vaga:(o.vaga!=null?o.vaga:(l.doca!=null&&l.doca!==''?l.doca:null)),
+    onda:onda, motorista:l.motorista||'', processo:processo, tempoMin:tempoMin, kangu:ehK(o.transportadora), exp:ehExpedida(processo,l) };
 }
 
 function render(){
-  if (baseAtual === 'GERAL') return renderGeral();
-  document.getElementById('barraFiltros').style.display = '';
-  var pacote = DADOS[baseAtual] || {};
-  var d = pacote.dados || {};
-  var linhas = d.linhas || [];
-  var kpis = d.kpis || {};
+  document.getElementById('togK').style.display = vista==='mapa'?'':'none';
+  var min=minutosDesde(CARR[baseAtual]&&CARR[baseAtual].atualizadoEm);
+  var sub=document.getElementById('sub');
+  if(min===null){sub.innerHTML='sem status ao vivo ainda';sub.className='sub';}
+  else if(min<=3){sub.innerHTML='ao vivo <b>agora</b>';sub.className='sub';}
+  else{sub.innerHTML='ao vivo há <b>'+min+' min</b>'+(min>15?' — Torre pode estar fechada':'');sub.className=min>15?'sub velho':'sub';}
+  if(vista==='mapa') return renderMapa();
+  return renderLista();
+}
 
-  var min = minutosDesde(pacote.atualizadoEm);
-  var sub = document.getElementById('sub');
-  if (min === null) { sub.innerHTML = 'sem dados ainda'; sub.className='sub'; }
-  else if (min <= 3) { sub.innerHTML = 'atualizado <b>agora mesmo</b>' + (d.operador?(' · '+d.operador):''); sub.className='sub'; }
-  else { sub.innerHTML = 'atualizado há <b>'+min+' min</b>' + (min>15?' — a Torre pode estar fechada':''); sub.className = min>15?'sub velho':'sub'; }
+function renderMapa(){
+  var odcMap = ODC[baseAtual]||{};
+  var rotas = Object.keys(odcMap);
+  if(!rotas.length){ document.getElementById('kpis').innerHTML=''; document.getElementById('lista').innerHTML='<div class="vazio">Sem ODC publicado para '+baseAtual+' hoje.<br>Suba o CSV/planilha na Torre.</div>'; return; }
+  var regs = rotas.map(function(r){ return regDe(baseAtual,r); });
+  var q=(document.getElementById('busca').value||'').trim().toLowerCase();
+  var vis = regs.filter(function(r){
+    if(soKangu && !r.kangu) return false;
+    if(soPend && r.exp) return false;
+    if(q){ return [r.rota,r.motorista,r.transportadora,'vaga '+r.vaga,ondaLabel(r.onda),r.processo].join(' ').toLowerCase().indexOf(q)>-1; }
+    return true;
+  });
+  // KPIs (do conjunto visível)
+  var exp=vis.filter(function(r){return r.exp;}).length, pen=vis.length-exp, kn=vis.filter(function(r){return r.kangu;}).length;
+  document.getElementById('kpis').innerHTML =
+      '<div class="kpi"><div class="n">'+vis.length+'</div><div class="l">Rotas</div></div>'
+    + '<div class="kpi s"><div class="n">'+exp+'</div><div class="l">Expedidas</div></div>'
+    + '<div class="kpi p"><div class="n">'+pen+'</div><div class="l">Pendentes</div></div>'
+    + '<div class="kpi r"><div class="n">'+kn+'</div><div class="l">Kangu</div></div>';
+  if(!vis.length){ document.getElementById('lista').innerHTML='<div class="vazio">Nada nesse filtro.</div>'; return; }
+  // agrupa por onda, ordena por vaga
+  var grupos={}; vis.forEach(function(r){ var n=(r.onda!=null?r.onda:99); (grupos[n]=grupos[n]||[]).push(r); });
+  function card(r){
+    var st = r.exp?'<span class="mst exp">✓ expedida</span>':'<span class="mst pen">● pendente</span>';
+    var proc = r.processo?'<span class="mtag proc">'+r.processo+'</span>':'';
+    var tempo=(r.tempoMin!=null&&r.tempoMin!=='')?'<span class="mtag">⏱ '+r.tempoMin+' min</span>':'';
+    return '<div class="mcard '+(r.exp?'exp':'pend')+(r.kangu?' kangu':'')+'">'
+      + '<div class="mvaga"><div class="vn">'+(r.vaga!=null?r.vaga:'—')+'</div><div class="vl">vaga</div></div>'
+      + '<div class="mbody"><div class="mrow1"><span class="mrota">'+r.rota+'</span>'+(r.kangu?'<span class="mkflag">KANGU</span>':'')+'</div>'
+      + '<div class="mtransp">'+(r.transportadora||'—')+'</div>'
+      + (r.motorista?'<div class="mmot">👤 '+r.motorista+'</div>':'')
+      + '<div class="mmeta">'+st+proc+tempo+'</div></div></div>';
+  }
+  var html = Object.keys(grupos).map(Number).sort(function(a,b){return a-b;}).map(function(n){
+    var itens=grupos[n].sort(function(a,b){ var va=a.vaga==null?1e9:a.vaga, vb=b.vaga==null?1e9:b.vaga; return va-vb || String(a.rota).localeCompare(String(b.rota)); });
+    var pen=itens.filter(function(r){return !r.exp;}).length;
+    var resumo = pen?('<b>'+pen+'</b> pendente'+(pen>1?'s':'')+' de '+itens.length):('<b class="ok">todas expedidas</b> ('+itens.length+')');
+    return '<div class="grupo"><div class="gh"><span class="nome">'+ondaLabel(n)+'</span><span class="cnt">'+resumo+'</span></div>'+itens.map(card).join('')+'</div>';
+  }).join('');
+  document.getElementById('lista').innerHTML=html;
+}
 
-  document.getElementById('tog').className = 'tog'+(soPendentes?' on':'');
-  document.getElementById('lista').className = 'lista';
-
-  var pend = linhas.filter(ehPendente).length;
+function renderLista(){
+  var p=CARR[baseAtual]||{}; var linhas=p.linhas||[]; var kpis=p.kpis||{};
+  function ehPend(l){ var pr=String(l.processo||'').trim().toLowerCase(); if(pr==='expedida') return false; if(!pr&&(l.subiu||l.status==='SUBIU'||l.status==='EM_ROTA'||l.status==='FINALIZADA')) return false; return true; }
+  var pend=linhas.filter(ehPend).length;
   document.getElementById('kpis').innerHTML =
       '<div class="kpi"><div class="n">'+(kpis.total||linhas.length||0)+'</div><div class="l">Rotas</div></div>'
     + '<div class="kpi s"><div class="n">'+(kpis.subiram||0)+'</div><div class="l">Subiram</div></div>'
     + '<div class="kpi p"><div class="n">'+pend+'</div><div class="l">Pendentes</div></div>'
     + '<div class="kpi r"><div class="n">'+(kpis.emRota||0)+'</div><div class="l">Em rota</div></div>';
-
-  var q = (document.getElementById('busca').value||'').trim().toLowerCase();
-  var vis = linhas.filter(function(l){
-    if (soPendentes && !ehPendente(l)) return false;
-    if (!q) return true;
-    return [l.rota,l.motorista,l.doca,l.cidade,l.onda,l.processo].join(' ').toLowerCase().indexOf(q) > -1;
-  });
-
-  if(!vis.length){
-    document.getElementById('lista').innerHTML = '<div class="vazio">'
-      + (linhas.length ? 'Nada nesse filtro.' : 'Sem carregamento publicado para '+baseAtual+'.<br>Abra a Torre no PC para publicar.')
-      + '</div>';
-    return;
-  }
-
-  // Agrupa por ONDA (menor -> maior)
-  var grupos = {};
-  vis.forEach(function(l){
-    var n = ondaNum(l.onda);
-    (grupos[n] = grupos[n] || []).push(l);
-  });
-
-  function cardHtml(l){
-    var exp = !ehPendente(l);
-    var tags = '';
-    if(l.doca)    tags += '<span class="tag">Vaga <b>'+l.doca+'</b></span>';
-    if(l.cidade)  tags += '<span class="tag">'+l.cidade+'</span>';
-    if(l.tempoMin!=='' && l.tempoMin!=null) tags += '<span class="tag">'+l.tempoMin+' min</span>';
-    if(l.check==='NS') tags += '<span class="tag ns">NS</span>';
-    return '<div class="card '+(exp?'exp':'pend')+'">'
-      + '<div class="l1"><span class="rota">'+l.rota+'</span>'
-      + '<span class="proc'+(exp?' exp':'')+'">'+(l.processo || l.statusLabel || '—')+'</span></div>'
-      + '<div class="mot">👤 '+(l.motorista||'Sem motorista')+'</div>'
-      + (tags?('<div class="meta">'+tags+'</div>'):'')
-      + '</div>';
-  }
-
-  var html = Object.keys(grupos).map(Number).sort(function(a,b){ return a-b; }).map(function(n){
-    var itens = grupos[n];
-
-    itens.sort(function(a, b){
-      var docaA = a.doca != null ? String(a.doca).trim() : '';
-      var docaB = b.doca != null ? String(b.doca).trim() : '';
-
-      if (!docaA && docaB) return 1;
-      if (docaA && !docaB) return -1;
-
-      var compVaga = docaA.localeCompare(docaB, undefined, { numeric: true, sensitivity: 'base' });
-      if (compVaga !== 0) return compVaga;
-
-      return String(a.rota).localeCompare(String(b.rota));
-    });
-
-    var pen = itens.filter(ehPendente).length;
-    var resumo = pen
-      ? '<b>'+pen+'</b> pendente'+(pen>1?'s':'')+' de '+itens.length
-      : '<b class="ok">todas expedidas</b> ('+itens.length+')';
-    return '<div class="grupo">'
-      + '<div class="gh"><span class="nome">'+ondaLabel(n)+'</span><span class="cnt">'+resumo+'</span></div>'
-      + itens.map(cardHtml).join('')
-      + '</div>';
-  }).join('');
-
-  document.getElementById('lista').innerHTML = html;
-}
-
-function renderGeral(){
-  document.getElementById('barraFiltros').style.display = 'none';
-  var tot={rotas:0,exp:0,pend:0,rota:0}, algum=false, maisVelho=null;
-  var cards = BASES.map(function(b){
-    var pac = DADOS[b] || {}; var d = pac.dados || {}; var ls = d.linhas || []; var k = d.kpis || {};
-    var pen = ls.filter(ehPendente).length, exp = ls.length - pen;
-    var min = minutosDesde(pac.atualizadoEm);
-    if (ls.length) { algum = true; tot.rotas += ls.length; tot.exp += exp; tot.pend += pen; tot.rota += (k.emRota||0); }
-    if (min !== null && (maisVelho === null || min > maisVelho)) maisVelho = min;
-    var pctE = ls.length ? Math.round(exp/ls.length*100) : 0;
-    var frio = !ls.length || (min !== null && min > 15);
-    return '<div class="bcard'+(frio?' frio':'')+'" onclick="trocaBase(\''+b+'\')">'
-      + '<div class="bh"><span class="bnome">'+b+'</span>'
-      + '<span class="bidade'+((min!==null&&min>15)?' velho':'')+'">'
-      + (min===null?'sem dados':(min<=3?'agora mesmo':'há '+min+' min'))+'</span></div>'
-      + (ls.length
-        ? '<div class="bbarra"><i class="exp" style="width:'+pctE+'%"></i><i class="pen" style="width:'+(100-pctE)+'%"></i></div>'
-          + '<div class="bnums"><span class="t"><b>'+ls.length+'</b>Rotas</span>'
-          + '<span class="v"><b>'+exp+'</b>Expedidas</span>'
-          + '<span class="p"><b>'+pen+'</b>Pendentes</span></div>'
-        : '<div class="bnums" style="margin-top:8px;">Nada publicado ainda</div>')
-      + '</div>';
-  }).join('');
-
-  var sub = document.getElementById('sub');
-  if (!algum) { sub.innerHTML = 'sem dados ainda'; sub.className='sub'; }
-  else if (maisVelho !== null && maisVelho > 15) { sub.innerHTML = 'dado mais antigo: <b>'+maisVelho+' min</b> — a Torre pode estar fechada'; sub.className='sub velho'; }
-  else { sub.innerHTML = 'visão geral · <b>todas as bases</b>'; sub.className='sub'; }
-
-  var pctG = tot.rotas ? Math.round(tot.exp/tot.rotas*100) : 0;
-  document.getElementById('kpis').innerHTML =
-      '<div class="kpi"><div class="n">'+tot.rotas+'</div><div class="l">Rotas</div></div>'
-    + '<div class="kpi s"><div class="n">'+tot.exp+'</div><div class="l">Expedidas</div></div>'
-    + '<div class="kpi p"><div class="n">'+tot.pend+'</div><div class="l">Pendentes</div></div>'
-    + '<div class="kpi r"><div class="n">'+pctG+'%</div><div class="l">Concluído</div></div>';
-
-  document.getElementById('lista').innerHTML = '<div class="geral">'+cards+'</div>';
+  var q=(document.getElementById('busca').value||'').trim().toLowerCase();
+  var vis=linhas.filter(function(l){ if(soPend&&!ehPend(l)) return false; if(!q) return true; return [l.rota,l.motorista,l.doca,l.cidade,l.onda,l.processo].join(' ').toLowerCase().indexOf(q)>-1; });
+  if(!vis.length){ document.getElementById('lista').innerHTML='<div class="vazio">'+(linhas.length?'Nada nesse filtro.':'Sem carregamento publicado para '+baseAtual+'.')+'</div>'; return; }
+  var grupos={}; vis.forEach(function(l){ (grupos[ondaNum(l.onda)]=grupos[ondaNum(l.onda)]||[]).push(l); });
+  function card(l){ var exp=!ehPend(l); var tags=''; if(l.doca)tags+='<span class="tag">Vaga <b>'+l.doca+'</b></span>'; if(l.cidade)tags+='<span class="tag">'+l.cidade+'</span>'; if(l.tempoMin!==''&&l.tempoMin!=null)tags+='<span class="tag">'+l.tempoMin+' min</span>';
+    return '<div class="card '+(exp?'exp':'pend')+'"><div class="l1"><span class="rota">'+l.rota+'</span><span class="proc'+(exp?' exp':'')+'">'+(l.processo||'—')+'</span></div><div class="mot">👤 '+(l.motorista||'Sem motorista')+'</div>'+(tags?'<div class="meta">'+tags+'</div>':'')+'</div>'; }
+  var html=Object.keys(grupos).map(Number).sort(function(a,b){return a-b;}).map(function(n){ var itens=grupos[n]; var pen=itens.filter(ehPend).length; var resumo=pen?('<b>'+pen+'</b> pendente'+(pen>1?'s':'')+' de '+itens.length):('<b class="ok">todas expedidas</b> ('+itens.length+')'); return '<div class="grupo"><div class="gh"><span class="nome">'+ondaLabel(n)+'</span><span class="cnt">'+resumo+'</span></div>'+itens.map(card).join('')+'</div>'; }).join('');
+  document.getElementById('lista').innerHTML=html;
 }
 
 chips();
-buscar();
-setInterval(buscar, 20000);
-document.addEventListener('visibilitychange', function(){ if(!document.hidden) buscar(); });
+setVista(vista);
+buscarCarr(); carregarODC(baseAtual);
+setInterval(function(){ buscarCarr(); carregarODC(baseAtual); }, 20000);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden){ buscarCarr(); carregarODC(baseAtual); } });
 </script>
 </body>
 </html>
