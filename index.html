@@ -368,19 +368,33 @@ function renderKpis(lista){
   const k = (n, l, cls, hideSm) => '<div class="kpi ' + (cls || '') + (hideSm ? ' kpi--hide-sm' : '') + '"><div class="kpi__n">' + n + '</div><div class="kpi__l">' + l + '</div></div>';
   $('kpis').innerHTML = k(total, 'Rotas') + k(done, 'Subiram', 'kpi--ok') + k(pend, 'Pendentes', 'kpi--bad') + k(rota, 'Em rota', 'kpi--route', true) + k(chamados + '/' + total, 'Chamados', 'kpi--call', true);
 }
-function cardRota(l, ch){
+// v1.9.72: "ao lado do chamar, coloca botão de auditar" — cada card da aba Lista ganha um botão
+// Auditar/Reauditar, ao lado do Chamar, quando o worker manda o vínculo rota->veículo (v.rota, desde
+// worker-kangu v2.6). A aba Lista nunca recebe placa (LGPD) — o botão só aparece quando dá pra casar
+// pela rota; sem isso (auditoria não configurada nessa base, ou rota sem veículo casado) ele some.
+function cardRota(l, ch, porRota){
   const s = situacao(l), cham = ch[l.rota];
   const tags = [];
   if(l.doca) tags.push('<span class="tag">Vaga <b>' + esc(l.doca) + '</b></span>');
   if(l.cidade) tags.push('<span class="tag">' + esc(l.cidade) + '</span>');
   if(l.tempoMin !== '' && l.tempoMin != null) tags.push('<span class="tag">⏱ ' + esc(l.tempoMin) + ' min</span>');
+  const v = porRota && porRota[l.rota];
+  let auditBadge = '', auditBtn = '';
+  if(v){
+    const L = AUDIT_SIT[v.situacao] || AUDIT_SIT.nunca;
+    if(L.cls === 'bad' || L.cls === 'warn') auditBadge = '<span class="abadge abadge--' + L.cls + '">' + esc(L.txt) + '</span>';
+    auditBtn = '<button type="button" class="call" data-acao="audit-abrir" data-placa="' + esc(v.placa) + '" data-motorista="' + esc(v.motorista) + '">🔍 ' +
+      (v.situacao === 'nunca' || v.situacao === 'ok' || v.situacao === 'venceHoje' ? 'Auditar' : 'Reauditar') + '</button>';
+  }
   return '<article class="route route--' + s.cls + (cham ? ' route--called' : '') + '">' +
     '<div class="route__top"><span class="route__code">' + esc(l.rota) + '</span>' +
       '<span class="route__status st--' + (s.proc ? 'proc' : s.cls) + '">' + esc(s.txt) + '</span></div>' +
     '<div class="route__driver">👤 ' + (l.motorista ? esc(l.motorista) : '<small>sem motorista</small>') + '</div>' +
-    (tags.length ? '<div class="route__tags">' + tags.join('') + '</div>' : '') +
-    '<button type="button" class="call" data-acao="chamar" data-rota="' + esc(l.rota) + '" aria-pressed="' + (cham ? 'true' : 'false') + '">' +
-      (cham ? '✓ Chamado ' + esc(horaCurta(cham)) : '📣 Chamar') + '</button>' +
+    (tags.length || auditBadge ? '<div class="route__tags">' + tags.join('') + auditBadge + '</div>' : '') +
+    '<div class="route__tags">' +
+      '<button type="button" class="call" data-acao="chamar" data-rota="' + esc(l.rota) + '" aria-pressed="' + (cham ? 'true' : 'false') + '">' +
+        (cham ? '✓ Chamado ' + esc(horaCurta(cham)) : '📣 Chamar') + '</button>' + auditBtn +
+    '</div>' +
   '</article>';
 }
 function renderLista(){
@@ -391,12 +405,16 @@ function renderLista(){
   const vis = filtrar(linhas);
   if(!vis.length){ $('conteudo').innerHTML = '<div class="empty">Nada nesse filtro.</div>'; return; }
   const ch = lerChamados(), grupos = {};
+  // v1.9.72: vínculo rota->veículo vindo do worker (só existe quando a auditoria está configurada
+  // pra essa base e a rota tem veículo casado) — usado só pra desenhar o botão Auditar de cada card.
+  const porRota = {};
+  ((st.audit && st.audit.veiculos) || []).forEach(v => { if(v.rota) porRota[v.rota] = v; });
   vis.forEach(l => { const n = ondaNum(l.onda); (grupos[n] = grupos[n] || []).push(l); });
   $('conteudo').innerHTML = Object.keys(grupos).map(Number).sort((a, b) => a - b).map(n => {
     const it = grupos[n], p = it.filter(pendente).length;
     return '<section class="wave" aria-label="' + esc(ondaLabel(n)) + '"><div class="wave__head"><span class="wave__name">' + esc(ondaLabel(n)) + '</span>' +
       '<span class="wave__count">' + (p ? '<b>' + p + '</b> pendente' + (p > 1 ? 's' : '') + ' de ' + it.length : '<b class="ok">todas saíram</b> (' + it.length + ')') + '</span></div>' +
-      '<div class="cards">' + it.map(l => cardRota(l, ch)).join('') + '</div></section>';
+      '<div class="cards">' + it.map(l => cardRota(l, ch, porRota)).join('') + '</div></section>';
   }).join('');
 }
 function registrosMapa(){
@@ -486,7 +504,10 @@ function cardAudit(v){
 }
 function renderAuditoria(){
   const cont = $('conteudo');
-  if(st.auditIndisponivel){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty">A auditoria de veículos ainda não foi configurada pra essa base por aqui.<br>Use a Torre de Controle, ou peça pro responsável configurar.</div>'; return; }
+  // v1.9.72: a mensagem antiga ("Use a Torre de Controle") dava a entender que a auditoria por aqui
+  // dependia da Torre estar aberta — o contrário do que ela faz. É só uma configuração no Cloudflare
+  // (feita uma vez pelo responsável); depois de configurada, funciona por aqui sem Torre nenhuma.
+  if(st.auditIndisponivel){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty">A auditoria de veículos ainda não foi habilitada pra essa base por aqui.<br>Isso é uma configuração única do responsável (não precisa da Torre aberta) — peça pra ele habilitar.</div>'; return; }
   if(!st.audit){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty"><span class="spinner" aria-hidden="true"></span>carregando auditoria de veículos…</div>'; return; }
   // v1.9.71: a lista já vem filtrada pelo worker — só quem tem rota atribuída no carregamento de
   // HOJE (não a frota inteira cadastrada na base). totalFrota é só pra dar contexto na tela vazia.
