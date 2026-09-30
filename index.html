@@ -150,6 +150,25 @@ button,input{ font:inherit; color:inherit; } button{ cursor:pointer; }
 body.is-lite .lite-chip{ display:inline-flex; }
 body.is-lite *,body.is-lite *::before,body.is-lite *::after{ animation:none !important; transition:none !important; backdrop-filter:none !important; box-shadow:none !important; }
 @media (max-width:560px){ .kpis{ grid-template-columns:repeat(3,1fr); } .kpi--hide-sm{ display:none; } .cards{ grid-template-columns:1fr; } }
+
+/* =====================================================================
+   7. AUDITORIA DE VEÍCULOS (v1.9.70) — funciona sem a Torre aberta
+   ===================================================================== */
+.abadge{ padding:4px 10px; border-radius:var(--r-pill); font-size:.72rem; font-weight:800; display:inline-block; white-space:nowrap; }
+.abadge--bad{ background:rgba(239,68,68,.16); color:var(--c-bad-2); }
+.abadge--warn{ background:rgba(245,179,1,.14); color:var(--c-brand-2); }
+.abadge--ok{ background:rgba(34,197,94,.16); color:var(--c-ok-2); }
+.abadge--dim{ background:rgba(255,255,255,.07); color:var(--c-muted); }
+.aitem{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--c-border); }
+.aitem__btns{ display:flex; gap:6px; flex:0 0 auto; }
+.aitem__btn{ padding:7px 11px; border-radius:var(--r-sm); border:1.5px solid var(--c-border); background:var(--c-surface); font-size:.78rem; font-weight:800; }
+.aitem__btn--ok[aria-pressed="true"]{ background:var(--c-ok); border-color:var(--c-ok); color:#04140a; }
+.aitem__btn--nc[aria-pressed="true"]{ background:var(--c-bad); border-color:var(--c-bad); color:#fff; }
+.afield{ margin-top:10px; }
+.afield label{ display:block; font-size:.78rem; font-weight:700; color:var(--c-muted); margin-bottom:5px; }
+.afield input,.afield textarea,.afield select{ width:100%; padding:10px 12px; border-radius:var(--r-md); border:1.5px solid var(--c-border); background:var(--c-surface); }
+.abtn{ margin-top:14px; width:100%; padding:13px; border-radius:var(--r-md); border:0; background:var(--g-brand); color:var(--c-on-brand); font-weight:900; font-size:.95rem; }
+.abtn--bad{ background:var(--c-bad); color:#fff; }
 </style>
 </head>
 <body>
@@ -174,6 +193,7 @@ body.is-lite *,body.is-lite *::before,body.is-lite *::after{ animation:none !imp
     <div class="tabs" role="tablist" aria-label="Visualização">
       <button type="button" class="tab" role="tab" id="tabLista" data-acao="vista" data-v="lista" aria-selected="true">☰ Lista</button>
       <button type="button" class="tab" role="tab" id="tabMapa" data-acao="vista" data-v="mapa" aria-selected="false">▦ Mapa de vagas</button>
+      <button type="button" class="tab" role="tab" id="tabAuditoria" data-acao="vista" data-v="auditoria" aria-selected="false">🔍 Auditoria</button>
     </div>
     <div id="aviso"></div>
     <div class="kpis" id="kpis" aria-label="Resumo"></div>
@@ -201,11 +221,20 @@ body.is-lite *,body.is-lite *::before,body.is-lite *::after{ animation:none !imp
     <h2 id="privTit">🔒 Privacidade</h2>
     <p>Esta tela mostra o carregamento do dia para organizar a operação no galpão. Controlador: Ebazar.com.br Ltda. (Mercado Livre) — operação Kangu.</p>
     <ul>
-      <li>Aparece só o <b>nome abreviado</b> do motorista (ex.: "Erick F. M."). <b>Placa e dados pessoais não são exibidos.</b></li>
+      <li>Aparece só o <b>nome abreviado</b> do motorista (ex.: "Erick F. M."). <b>Placa e dados pessoais não são exibidos</b> nas abas Lista e Mapa de vagas.</li>
+      <li>Exceção: a aba <b>Auditoria</b> mostra nome completo e placa do veículo — é o mínimo necessário pra quem está fazendo a auditoria física identificar o veículo certo no pátio. Só quem tem o PIN da base consegue registrar uma auditoria ou pausar um motorista; ver a situação fica livre pra quem tiver o link.</li>
       <li>Os dados vêm da Torre de Controle e valem só para o dia.</li>
       <li>O botão <b>Chamar</b> grava apenas neste aparelho (não vai para nenhum servidor).</li>
       <li>Dúvidas ou pedidos sobre seus dados: Encarregado de Dados (DPO) do Mercado Livre — mercadolivre.com.br/privacidade — ou o responsável do grupo.</li>
     </ul>
+  </div>
+</div>
+<div class="sheet" id="sheetAudit" role="dialog" aria-modal="true" aria-labelledby="auditTit">
+  <div class="sheet__bg" data-acao="fechar"></div>
+  <div class="sheet__panel">
+    <button type="button" class="sheet__close" data-acao="fechar">Fechar ✕</button>
+    <h2 id="auditTit">🔍 Auditoria de veículo</h2>
+    <div id="auditCorpo"></div>
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -232,7 +261,8 @@ const BASE = (new URLSearchParams(location.search).get('base') || '').toUpperCas
    ===================================================================== */
 const st = {
   vista: ls.get('carr_vista', 'lista'), pend: ls.get('carr_pend', '0') === '1', naoChamados: false, kangu: ls.get('carr_kangu', '0') === '1',
-  carr: null, odc: {}, disp: {}, erroSeguidos: 0, timer: null, ultimaOk: 0
+  carr: null, odc: {}, disp: {}, erroSeguidos: 0, timer: null, ultimaOk: 0,
+  audit: null, auditIndisponivel: false   // v1.9.70: auditoria de veículos (sem precisar da Torre aberta)
 };
 
 /* =====================================================================
@@ -268,14 +298,18 @@ async function getJson(url){
 }
 async function atualizar(){
   try{
-    const [c, o, d] = await Promise.all([
+    const [c, o, d, a] = await Promise.all([
       getJson(CFG.WORKER + '/carregamento?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()),
       getJson(CFG.ODC + '/odc?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null),
-      getJson(CFG.ODC + '/dispatch?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null)
+      getJson(CFG.ODC + '/dispatch?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null),
+      // v1.9.70: auditoria de veículos — mesmo worker, rota nova; falha aqui nunca derruba o resto da tela
+      getJson(CFG.WORKER + '/auditoria?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(e => ({ ok:false, erro: String(e && e.message || e) }))
     ]);
     st.carr = c;
     if(o){ const m = {}; Object.values(o.ciclos || {}).forEach(ci => (ci.rotas || []).forEach(x => { if(x && x.rota) m[String(x.rota).toUpperCase()] = x; })); st.odc = m; }
     if(d) st.disp = d.mapa || {};
+    if(a && a.ok){ st.audit = a.resultado || null; st.auditIndisponivel = false; }
+    else { st.auditIndisponivel = /\b501\b/.test((a && a.erro) || ''); }
     st.erroSeguidos = 0; st.ultimaOk = Date.now();
   }catch(_){ st.erroSeguidos++; }
   render(); agendar();
@@ -404,9 +438,160 @@ function renderAviso(){
 function render(){
   renderLive(); renderAviso();
   $('tabLista').setAttribute('aria-selected', st.vista === 'lista'); $('tabMapa').setAttribute('aria-selected', st.vista === 'mapa');
+  $('tabAuditoria').setAttribute('aria-selected', st.vista === 'auditoria');
   $('togKangu').classList.toggle('is-hidden', st.vista !== 'mapa');
+  // v1.9.70: filtros de pendente/não-chamados não fazem sentido na aba Auditoria
+  document.querySelectorAll('[data-acao="filtro"][data-f="pend"], [data-acao="filtro"][data-f="naoChamados"]').forEach(b => b.classList.toggle('is-hidden', st.vista === 'auditoria'));
   document.querySelectorAll('[data-acao="filtro"]').forEach(b => b.setAttribute('aria-pressed', st[b.dataset.f] ? 'true' : 'false'));
-  if(st.vista === 'mapa') renderMapa(); else renderLista();
+  if(st.vista === 'mapa') renderMapa(); else if(st.vista === 'auditoria') renderAuditoria(); else renderLista();
+}
+
+/* =====================================================================
+   AUDITORIA DE VEÍCULOS (v1.9.70) — "mesmo se a torre estiver fechada, eu
+   consigo fazer a auditoria". Leitura livre (situação de cada veículo);
+   registrar auditoria ou pausar exige o PIN da base (perguntado na hora,
+   validado no worker — nunca fica salvo neste aparelho).
+   ===================================================================== */
+const AUDIT_SIT = {
+  pausado: { txt:'⏸ Pausado (crítico)', cls:'bad' },
+  prazoVencido: { txt:'⛔ Prazo vencido', cls:'bad' },
+  aguardandoRegularizacao: { txt:'🟠 Aguardando regularização', cls:'warn' },
+  venceHoje: { txt:'📅 Vence hoje/atrasada', cls:'warn' },
+  nunca: { txt:'❔ Nunca auditado', cls:'dim' },
+  ok: { txt:'✅ Em dia', cls:'ok' }
+};
+function auditItensPadrao(){
+  return [
+    { id:'calco', label:'Calço de roda', critico:false }, { id:'pneus', label:'Pneus (estado/calibragem)', critico:true },
+    { id:'luzes', label:'Luzes (freio/seta/farol)', critico:false }, { id:'chave_roda', label:'Chave de roda (visível no veículo)', critico:false },
+    { id:'cinto', label:'Cinto de segurança (clipado/funcionando)', critico:true }, { id:'avarias', label:'Avarias (parabrisa/lanterna quebrada etc.)', critico:true }
+  ];
+}
+function cardAudit(v){
+  const L = AUDIT_SIT[v.situacao] || AUDIT_SIT.nunca;
+  const det = [];
+  if(v.situacao === 'pausado') det.push('<span class="tag">' + esc(v.motivoPausa || 'motivo não informado') + '</span>');
+  else if(v.situacao === 'aguardandoRegularizacao' || v.situacao === 'prazoVencido') det.push('<span class="tag">prazo: <b>' + esc(v.prazoRegularizacao || '—') + '</b></span>');
+  else if(v.situacao === 'ok' || v.situacao === 'venceHoje') det.push('<span class="tag">próxima: ' + esc(v.proximaAuditoria || '—') + '</span>');
+  det.push('<span class="tag">última: ' + esc(v.ultimaAuditoria || 'nunca') + '</span>');
+  let botoes = '<button type="button" class="call" data-acao="audit-abrir" data-placa="' + esc(v.placa) + '" data-motorista="' + esc(v.motorista) + '">🔍 ' +
+    (v.situacao === 'nunca' || v.situacao === 'ok' || v.situacao === 'venceHoje' ? 'Auditar' : 'Reauditar') + '</button>';
+  if(v.situacao === 'prazoVencido') botoes += ' <button type="button" class="call" data-acao="audit-pausar" data-placa="' + esc(v.placa) + '" data-motorista="' + esc(v.motorista) + '">⏸ Pausar agora</button>';
+  return '<article class="route">' +
+    '<div class="route__top"><span class="route__code">' + esc(v.motorista || '—') + '</span><span class="abadge abadge--' + L.cls + '">' + esc(L.txt) + '</span></div>' +
+    '<div class="route__driver"><small>' + esc(v.placa || '') + (v.modal ? (' · ' + esc(v.modal)) : '') + '</small></div>' +
+    '<div class="route__tags">' + det.join('') + '</div>' +
+    '<div class="route__tags">' + botoes + '</div>' +
+  '</article>';
+}
+function renderAuditoria(){
+  const cont = $('conteudo');
+  if(st.auditIndisponivel){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty">A auditoria de veículos ainda não foi configurada pra essa base por aqui.<br>Use a Torre de Controle, ou peça pro responsável configurar.</div>'; return; }
+  if(!st.audit){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty"><span class="spinner" aria-hidden="true"></span>carregando auditoria de veículos…</div>'; return; }
+  // v1.9.71: a lista já vem filtrada pelo worker — só quem tem rota atribuída no carregamento de
+  // HOJE (não a frota inteira cadastrada na base). totalFrota é só pra dar contexto na tela vazia.
+  const lista = st.audit.veiculos || [];
+  const q = ($('busca').value || '').trim().toLowerCase();
+  const vis = q ? lista.filter(v => [v.placa, v.motorista].join(' ').toLowerCase().indexOf(q) > -1) : lista;
+  const porSit = {}; lista.forEach(v => { (porSit[v.situacao] = porSit[v.situacao] || []).push(v); });
+  const n = s => (porSit[s] || []).length;
+  const k = (num, l, cls, hideSm) => '<div class="kpi ' + (cls || '') + (hideSm ? ' kpi--hide-sm' : '') + '"><div class="kpi__n">' + num + '</div><div class="kpi__l">' + l + '</div></div>';
+  $('kpis').innerHTML = k(lista.length, 'No carregamento hoje') + k(n('ok'), 'Em dia', 'kpi--ok') + k(n('pausado'), 'Pausados', 'kpi--bad') + k(n('prazoVencido') + n('aguardandoRegularizacao'), 'Não conforme', 'kpi--bad', true) + k(n('nunca'), 'Nunca', '', true);
+  if(!lista.length){
+    const total = st.audit.totalFrota || 0;
+    cont.innerHTML = '<div class="empty">Nenhum motorista com rota no carregamento de hoje pra auditar ainda.' +
+      (total ? ('<br><small>(' + total + ' veículo' + (total > 1 ? 's' : '') + ' cadastrado' + (total > 1 ? 's' : '') + ' na base — aparecem aqui quando entrarem no carregamento de hoje.)</small>') : '') + '</div>';
+    return;
+  }
+  if(!vis.length){ cont.innerHTML = '<div class="empty">Nada nesse filtro.</div>'; return; }
+  cont.innerHTML = '<div class="cards">' + vis.map(cardAudit).join('') + '</div>';
+}
+function auditPrazoPadrao(){ const d = new Date(); d.setDate(d.getDate() + 3); return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear(); }
+let _auditAtual = null;   // { placa, motorista, itens:[{id,label,critico,ok}] }
+function auditAbrir(placa, motorista){
+  const base = (st.audit && st.audit.itensConfig && st.audit.itensConfig.length) ? st.audit.itensConfig : auditItensPadrao();
+  _auditAtual = { placa, motorista, itens: base.map(it => ({ id: it.id, label: it.label, critico: !!it.critico, ok: true })) };
+  auditRenderSheet();
+  $('sheetAudit').classList.add('sheet--open');
+}
+function auditRenderSheet(){
+  if(!_auditAtual) return;
+  // preserva o que já foi digitado (observação/prazo/dias/PIN) — cada toggle de item
+  // reconstrói o HTML inteiro do sheet, então sem isso o texto digitado se perderia.
+  const preservar = {};
+  ['auditObs', 'auditPrazo', 'auditDias', 'auditPin'].forEach(id => { const el = $(id); if(el) preservar[id] = el.value; });
+  const nc = _auditAtual.itens.filter(it => !it.ok);
+  const critico = nc.some(it => it.critico);
+  const intervalo = (st.audit && st.audit.intervaloDias) || 15;
+  let h = '<p><b>' + esc(_auditAtual.motorista) + '</b> <span style="color:var(--c-muted)">' + esc(_auditAtual.placa) + '</span></p>';
+  h += _auditAtual.itens.map((it, i) => (
+    '<div class="aitem"><span>' + esc(it.label) + '</span><div class="aitem__btns">' +
+      '<button type="button" class="aitem__btn aitem__btn--ok" data-acao="audit-item" data-i="' + i + '" data-ok="1" aria-pressed="' + (it.ok ? 'true' : 'false') + '">OK</button>' +
+      '<button type="button" class="aitem__btn aitem__btn--nc" data-acao="audit-item" data-i="' + i + '" data-ok="0" aria-pressed="' + (!it.ok ? 'true' : 'false') + '">Não conforme</button>' +
+    '</div></div>' +
+    (!it.ok ? ('<div class="afield"><label>Gravidade — ' + esc(it.label) + '</label><select data-acao="audit-sev" data-i="' + i + '">' +
+      '<option value="regular"' + (it.critico ? '' : ' selected') + '>Regular (aviso + prazo)</option>' +
+      '<option value="critico"' + (it.critico ? ' selected' : '') + '>Crítico (pausa imediata)</option></select></div>') : '')
+  )).join('');
+  h += '<div class="afield"><label>Observação (opcional)</label><textarea id="auditObs" rows="2"></textarea></div>';
+  if(!critico && nc.length) h += '<div class="afield"><label>Prazo pra regularizar</label><input id="auditPrazo" placeholder="dd/mm/aaaa" value="' + esc(auditPrazoPadrao()) + '"></div>';
+  if(critico) h += '<div class="afield"><label>Pausar por quantos dias</label><input id="auditDias" type="number" min="1" value="365"></div>';
+  h += '<div class="afield"><label>PIN da base (confirma quem está auditando)</label><input id="auditPin" type="password" inputmode="numeric" placeholder="PIN"></div>';
+  h += !nc.length ? ('<p style="color:var(--c-ok-2);font-weight:700">✅ Tudo conforme — próxima auditoria em ' + intervalo + ' dias.</p>')
+    : critico ? '<p style="color:var(--c-bad-2);font-weight:700">⏸ Crítico — vai pausar o motorista imediatamente até regularizar.</p>'
+    : '<p style="color:var(--c-brand-2);font-weight:700">🟠 Não conforme (regular) — dá um prazo pro motorista regularizar.</p>';
+  h += '<button type="button" class="abtn' + (critico ? ' abtn--bad' : '') + '" data-acao="audit-registrar">' + (critico ? 'Confirmar pausa e registrar' : 'Registrar auditoria') + '</button>';
+  $('auditCorpo').innerHTML = h;
+  Object.keys(preservar).forEach(id => { const el = $(id); if(el && preservar[id]) el.value = preservar[id]; });
+}
+async function auditEnviar(acao, payload, pin){
+  const r = await fetch(CFG.WORKER + '/auditoria?base=' + encodeURIComponent(BASE), {
+    method:'POST', credentials:'omit', headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ acao, pin, payload })
+  });
+  let j = null; try{ j = await r.json(); }catch(_){}
+  return { status: r.status, body: j };
+}
+async function auditRegistrar(){
+  if(!_auditAtual) return;
+  const nc = _auditAtual.itens.filter(it => !it.ok);
+  const critico = nc.some(it => it.critico);
+  const pinEl = $('auditPin'), pin = (pinEl ? pinEl.value : '').trim();
+  if(!pin){ toast('Digite o PIN da base pra confirmar.'); return; }
+  const payload = { placa: _auditAtual.placa, motorista: _auditAtual.motorista, itens: _auditAtual.itens, observacao: (($('auditObs') || {}).value || '').trim() };
+  if(critico) payload.diasPausa = parseInt((($('auditDias') || {}).value), 10) || 365;
+  else if(nc.length) payload.prazoRegularizacao = ($('auditPrazo') || {}).value || '';
+  toast('Registrando auditoria…');
+  const r = await auditEnviar('registrar', payload, pin);
+  if(r.status === 401){ toast('⚠️ PIN incorreto.'); return; }
+  if(r.status === 429){ toast('⚠️ Muitas tentativas — aguarde um pouco e tente de novo.'); return; }
+  if(r.status === 501){ toast('⚠️ Auditoria não configurada pra essa base.'); return; }
+  if(!r.body || !r.body.ok){ toast('⚠️ Não consegui registrar: ' + ((r.body && r.body.erro) || 'erro desconhecido')); return; }
+  const res = r.body.resultado || {};
+  const msg = res.status === 'OK' ? ('Tudo certo! Próxima auditoria: ' + (res.proximaAuditoria || '—'))
+    : res.status === 'PAUSADO' ? (_auditAtual.motorista + ' pausado até regularizar.')
+    : res.status === 'ABERTA' ? ('Registrado — prazo pra regularizar: ' + (res.prazoRegularizacao || '—'))
+    : 'Auditoria registrada.';
+  toast(msg + ' ✔'); $('sheetAudit').classList.remove('sheet--open'); _auditAtual = null; atualizar();
+}
+function auditPausarAbrir(placa, motorista){
+  const h = '<p>Pausar <b>' + esc(motorista) + '</b> agora por auditoria vencida (não regularizada)?</p>' +
+    '<div class="afield"><label>Pausar por quantos dias</label><input id="auditPvDias" type="number" min="1" value="365"></div>' +
+    '<div class="afield"><label>PIN da base</label><input id="auditPvPin" type="password" inputmode="numeric" placeholder="PIN"></div>' +
+    '<button type="button" class="abtn abtn--bad" data-acao="audit-pausar-confirmar" data-placa="' + esc(placa) + '" data-motorista="' + esc(motorista) + '">Pausar</button>';
+  $('auditCorpo').innerHTML = h;
+  $('sheetAudit').classList.add('sheet--open');
+}
+async function auditPausarConfirmar(placa, motorista){
+  const pinEl = $('auditPvPin'), pin = (pinEl ? pinEl.value : '').trim();
+  if(!pin){ toast('Digite o PIN da base pra confirmar.'); return; }
+  const dias = parseInt((($('auditPvDias') || {}).value), 10) || 365;
+  toast('Pausando…');
+  const r = await auditEnviar('pausar_vencida', { placa, motorista, detalhe:'prazo de regularização vencido', diasPausa: dias }, pin);
+  if(r.status === 401){ toast('⚠️ PIN incorreto.'); return; }
+  if(r.status === 429){ toast('⚠️ Muitas tentativas — aguarde um pouco e tente de novo.'); return; }
+  if(!r.body || !r.body.ok){ toast('⚠️ Não consegui pausar: ' + ((r.body && r.body.erro) || 'erro desconhecido')); return; }
+  toast(motorista + ' pausado por auditoria vencida. ✔'); $('sheetAudit').classList.remove('sheet--open'); atualizar();
 }
 
 /* =====================================================================
@@ -425,9 +610,23 @@ document.addEventListener('click', e => {
   else if(a === 'fonte'){ const n = (parseInt(ls.get('carr_fonte', '0'), 10) + 1) % 3; ls.set('carr_fonte', String(n)); aplicarFonte(n); }
   else if(a === 'lite'){ document.body.classList.remove('is-lite'); ls.set('carr_leve', '0'); toast('Modo leve desligado.'); }
   else if(a === 'privacidade'){ $('sheetPriv').classList.add('sheet--open'); }
-  else if(a === 'fechar'){ $('sheetPriv').classList.remove('sheet--open'); }
+  else if(a === 'fechar'){ const sh = el.closest('.sheet'); if(sh) sh.classList.remove('sheet--open'); }
+  // v1.9.70: auditoria de veículos
+  else if(a === 'audit-abrir') auditAbrir(el.dataset.placa, el.dataset.motorista);
+  else if(a === 'audit-pausar') auditPausarAbrir(el.dataset.placa, el.dataset.motorista);
+  else if(a === 'audit-pausar-confirmar') auditPausarConfirmar(el.dataset.placa, el.dataset.motorista);
+  else if(a === 'audit-registrar') auditRegistrar();
+  else if(a === 'audit-item'){
+    const i = parseInt(el.dataset.i, 10);
+    if(_auditAtual && _auditAtual.itens[i]){ _auditAtual.itens[i].ok = el.dataset.ok === '1'; auditRenderSheet(); }
+  }
 });
-document.addEventListener('keydown', e => { if(e.key === 'Escape') $('sheetPriv').classList.remove('sheet--open'); });
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-acao="audit-sev"]'); if(!el) return;
+  const i = parseInt(el.dataset.i, 10);
+  if(_auditAtual && _auditAtual.itens[i]) _auditAtual.itens[i].critico = el.value === 'critico';
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ $('sheetPriv').classList.remove('sheet--open'); $('sheetAudit').classList.remove('sheet--open'); } });
 let _buscaT = null; $('busca').addEventListener('input', () => { clearTimeout(_buscaT); _buscaT = setTimeout(render, 150); });
 document.addEventListener('visibilitychange', () => { if(document.hidden) clearTimeout(st.timer); else atualizar(); });
 setInterval(renderLive, 30000);
