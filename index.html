@@ -2,7 +2,7 @@
 <!-- =====================================================================
      DOCUMENTO CONTROLADO (ISO 9001 · 7.5) — KNG-CARR-PUB
      Sistema: Carregamento ao vivo — link único para todas as bases (?base=SMG15)
-     Versão: 2.1.0 · Data: 2026-09-30
+     Versão: 2.2.0 · Data: 2026-09-30
      Controlador (LGPD): Ebazar.com.br Ltda. (Mercado Livre) — operação Kangu
      Dados exibidos: rota/gaiola, vaga, onda, status e NOME ABREVIADO do motorista (sem placa).
      ===================================================================== -->
@@ -262,7 +262,7 @@ const BASE = (new URLSearchParams(location.search).get('base') || '').toUpperCas
 const st = {
   vista: ls.get('carr_vista', 'lista'), pend: ls.get('carr_pend', '0') === '1', naoChamados: false, kangu: ls.get('carr_kangu', '0') === '1',
   carr: null, odc: {}, disp: {}, erroSeguidos: 0, timer: null, ultimaOk: 0,
-  audit: null, auditIndisponivel: false   // v1.9.70: auditoria de veículos (sem precisar da Torre aberta)
+  audit: null, auditIndisponivel: false, auditErro: ''   // v1.9.70: auditoria de veículos (sem precisar da Torre aberta)
 };
 
 /* =====================================================================
@@ -308,8 +308,14 @@ async function atualizar(){
     st.carr = c;
     if(o){ const m = {}; Object.values(o.ciclos || {}).forEach(ci => (ci.rotas || []).forEach(x => { if(x && x.rota) m[String(x.rota).toUpperCase()] = x; })); st.odc = m; }
     if(d) st.disp = d.mapa || {};
-    if(a && a.ok){ st.audit = a.resultado || null; st.auditIndisponivel = false; }
-    else { st.auditIndisponivel = /\b501\b/.test((a && a.erro) || ''); }
+    if(a && a.ok){ st.audit = a.resultado || null; st.auditIndisponivel = false; st.auditErro = ''; }
+    else {
+      st.auditIndisponivel = /\b501\b/.test((a && a.erro) || '');
+      // v1.9.74: "deu erro" — antes, qualquer falha que NÃO fosse "não configurada" (501) deixava a
+      // tela presa pra sempre em "carregando…", sem nenhuma pista do que aconteceu. Agora guarda o
+      // erro real (o worker já manda status HTTP + pista do que é) pra mostrar em vez do spinner infinito.
+      if(!st.auditIndisponivel) st.auditErro = (a && a.erro) || 'erro desconhecido';
+    }
     st.erroSeguidos = 0; st.ultimaOk = Date.now();
   }catch(_){ st.erroSeguidos++; }
   render(); agendar();
@@ -508,6 +514,9 @@ function renderAuditoria(){
   // dependia da Torre estar aberta — o contrário do que ela faz. É só uma configuração no Cloudflare
   // (feita uma vez pelo responsável); depois de configurada, funciona por aqui sem Torre nenhuma.
   if(st.auditIndisponivel){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty">A auditoria de veículos ainda não foi habilitada pra essa base por aqui.<br>Isso é uma configuração única do responsável (não precisa da Torre aberta) — peça pra ele habilitar.</div>'; return; }
+  // v1.9.74: erro real (não "não configurada") — antes ficava preso em "carregando" pra sempre; agora
+  // mostra o motivo (o worker já manda status HTTP + pista do que é) e continua tentando sozinho.
+  if(st.auditErro && !st.audit){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty">⚠️ Não consegui buscar a auditoria agora.<br><small style="color:var(--c-muted)">' + esc(st.auditErro) + '</small><br>Tentando de novo sozinho a cada atualização.</div>'; return; }
   if(!st.audit){ $('kpis').innerHTML = ''; cont.innerHTML = '<div class="empty"><span class="spinner" aria-hidden="true"></span>carregando auditoria de veículos…</div>'; return; }
   // v1.9.71: a lista já vem filtrada pelo worker — só quem tem rota atribuída no carregamento de
   // HOJE (não a frota inteira cadastrada na base). totalFrota é só pra dar contexto na tela vazia.
@@ -587,13 +596,26 @@ async function auditRegistrar(){
   if(r.status === 401){ toast('⚠️ PIN incorreto.'); return; }
   if(r.status === 429){ toast('⚠️ Muitas tentativas — aguarde um pouco e tente de novo.'); return; }
   if(r.status === 501){ toast('⚠️ Auditoria não configurada pra essa base.'); return; }
-  if(!r.body || !r.body.ok){ toast('⚠️ Não consegui registrar: ' + ((r.body && r.body.erro) || 'erro desconhecido')); return; }
+  if(!r.body || !r.body.ok){ toast('⚠️ Não consegui registrar: ' + auditMotivoMsg(r.body)); return; }
+  $('sheetAudit').classList.remove('sheet--open'); _auditAtual = null;
+  // v1.9.76: bases no "modo empurrar" (ver MUDANCAS.md) não têm o resultado na hora — quem registra
+  // de verdade é um gatilho do Apps Script, alguns segundos depois. Mostra "enviado" e atualiza sozinho.
+  if(r.body.modo === 'form'){ toast('Enviado! Aplicando em alguns segundos… ✔'); setTimeout(atualizar, 4000); return; }
   const res = r.body.resultado || {};
   const msg = res.status === 'OK' ? ('Tudo certo! Próxima auditoria: ' + (res.proximaAuditoria || '—'))
     : res.status === 'PAUSADO' ? (_auditAtual.motorista + ' pausado até regularizar.')
     : res.status === 'ABERTA' ? ('Registrado — prazo pra regularizar: ' + (res.prazoRegularizacao || '—'))
     : 'Auditoria registrada.';
-  toast(msg + ' ✔'); $('sheetAudit').classList.remove('sheet--open'); _auditAtual = null; atualizar();
+  toast(msg + ' ✔'); atualizar();
+}
+// v1.9.76: mensagem pro "modo empurrar" (POST /auditoria via Google Form) quando o Google recusa o
+// envio — mesmos motivos que o /form (disponibilidade) já usa.
+function auditMotivoMsg(body){
+  const m = (body && body.motivo) || (body && body.erro) || '';
+  return { login:'o formulário de auditoria dessa base ainda não está publicado sem login — avise o responsável.',
+    fechado:'o formulário de auditoria dessa base está fechado — avise o responsável.',
+    sem_form:'auditoria (modo formulário) não configurada pra essa base — avise o responsável.',
+    google_indisponivel:'o Google não respondeu — tente de novo em alguns segundos.' }[m] || (m || 'erro desconhecido');
 }
 function auditPausarAbrir(placa, motorista){
   const h = '<p>Pausar <b>' + esc(motorista) + '</b> agora por auditoria vencida (não regularizada)?</p>' +
@@ -611,8 +633,11 @@ async function auditPausarConfirmar(placa, motorista){
   const r = await auditEnviar('pausar_vencida', { placa, motorista, detalhe:'prazo de regularização vencido', diasPausa: dias }, pin);
   if(r.status === 401){ toast('⚠️ PIN incorreto.'); return; }
   if(r.status === 429){ toast('⚠️ Muitas tentativas — aguarde um pouco e tente de novo.'); return; }
-  if(!r.body || !r.body.ok){ toast('⚠️ Não consegui pausar: ' + ((r.body && r.body.erro) || 'erro desconhecido')); return; }
-  toast(motorista + ' pausado por auditoria vencida. ✔'); $('sheetAudit').classList.remove('sheet--open'); atualizar();
+  if(!r.body || !r.body.ok){ toast('⚠️ Não consegui pausar: ' + auditMotivoMsg(r.body)); return; }
+  $('sheetAudit').classList.remove('sheet--open');
+  // v1.9.76: "modo empurrar" — quem pausa de verdade é o gatilho do Apps Script, alguns segundos depois.
+  if(r.body.modo === 'form'){ toast('Enviado! Aplicando em alguns segundos… ✔'); setTimeout(atualizar, 4000); return; }
+  toast(motorista + ' pausado por auditoria vencida. ✔'); atualizar();
 }
 
 /* =====================================================================
