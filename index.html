@@ -2,7 +2,7 @@
 <!-- =====================================================================
      DOCUMENTO CONTROLADO (ISO 9001 · 7.5) — KNG-CARR-PUB
      Sistema: Carregamento ao vivo — link único para todas as bases (?base=SMG15)
-     Versão: 2.2.0 · Data: 2026-09-30
+     Versão: 2.4.0 · Data: 2026-10-01
      Controlador (LGPD): Ebazar.com.br Ltda. (Mercado Livre) — operação Kangu
      Dados exibidos: rota/gaiola, vaga, onda, status e NOME ABREVIADO do motorista (sem placa).
      ===================================================================== -->
@@ -63,16 +63,20 @@ button,input{ font:inherit; color:inherit; } button{ cursor:pointer; }
 /* =====================================================================
    3. LAYOUT, ABAS, KPIs, BARRA
    ===================================================================== */
-.app{ max-width:1100px; margin:0 auto; padding:0 14px 30px; }
-.tabs{ display:flex; gap:8px; margin:12px 0 10px; }
-.tab{ flex:1; padding:11px; border-radius:var(--r-md); border:1.5px solid var(--c-border); background:var(--c-surface); font-weight:800; }
-.tab[aria-selected="true"]{ background:var(--g-brand); border-color:transparent; color:var(--c-on-brand); }
-.kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:10px; }
+.app{ max-width:1100px; margin:0 auto; padding:4px 14px 30px; }
+/* v1.9.80: as abas agora são uma "trilha" única (fundo + borda), não 3 caixas soltas —
+   e KPIs+busca ganharam uma bandeja (.painel-resumo) pra virar UM bloco visual, em vez de
+   3 elementos boiando soltos sem relação aparente entre si (o que o usuário chamou de "bagunça"). */
+.tabs{ display:flex; gap:4px; margin:16px 0; padding:4px; background:var(--c-bg2); border:1px solid var(--c-border); border-radius:var(--r-lg); }
+.tab{ flex:1; padding:10px; border-radius:calc(var(--r-md) - 2px); border:0; background:transparent; color:var(--c-muted); font-weight:800; }
+.tab[aria-selected="true"]{ background:var(--g-brand); color:var(--c-on-brand); box-shadow:0 1px 5px rgba(0,0,0,.3); }
+.painel-resumo{ background:var(--c-bg2); border:1px solid var(--c-border); border-radius:var(--r-lg); padding:12px; margin-bottom:18px; }
+.kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
 .kpi{ padding:10px 6px; text-align:center; background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); }
 .kpi__n{ font-size:1.45rem; font-weight:900; line-height:1.1; }
 .kpi__l{ margin-top:3px; font-size:.66rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--c-muted); }
 .kpi--ok .kpi__n{ color:var(--c-ok); } .kpi--bad .kpi__n{ color:var(--c-bad); } .kpi--route .kpi__n{ color:var(--c-info); } .kpi--call .kpi__n{ color:var(--c-brand-2); }
-.toolbar{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.toolbar{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--c-border); }
 .search{ flex:1 1 200px; min-width:0; padding:12px 14px; border-radius:var(--r-md); border:1.5px solid var(--c-border); background:var(--c-surface); font-weight:600; }
 .search::placeholder{ color:var(--c-muted); }
 .toggle{ padding:10px 13px; border-radius:var(--r-md); border:1.5px solid var(--c-border); background:var(--c-surface); font-size:.82rem; font-weight:800; white-space:nowrap; }
@@ -169,6 +173,25 @@ body.is-lite *,body.is-lite *::before,body.is-lite *::after{ animation:none !imp
 .afield input,.afield textarea,.afield select{ width:100%; padding:10px 12px; border-radius:var(--r-md); border:1.5px solid var(--c-border); background:var(--c-surface); }
 .abtn{ margin-top:14px; width:100%; padding:13px; border-radius:var(--r-md); border:0; background:var(--g-brand); color:var(--c-on-brand); font-weight:900; font-size:.95rem; }
 .abtn--bad{ background:var(--c-bad); color:#fff; }
+
+/* =====================================================================
+   8. MODO DEMONSTRAÇÃO E TOUR GUIADO (v1.9.81)
+   ===================================================================== */
+.picker__demo{ margin:14px 0 0; font-size:.85rem; }
+.picker__demo a{ color:var(--c-info-2); font-weight:700; text-decoration:none; }
+.banner--demo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px; padding:11px 13px; border-radius:var(--r-md);
+  background:rgba(56,189,248,.1); border:1px solid rgba(56,189,248,.35); color:#bae6fd; font-size:.85rem; font-weight:600; }
+.demo-btn{ padding:6px 12px; border-radius:var(--r-pill); border:1px solid rgba(56,189,248,.55); background:rgba(56,189,248,.16); color:#7dd3fc; font-weight:800; font-size:.78rem; text-decoration:none; }
+.tour-overlay{ position:fixed; inset:0; z-index:95; display:none; background:rgba(0,0,0,.6); }
+.tour-overlay.is-on{ display:block; }
+.tour-spot{ position:fixed; display:none; border:3px solid var(--c-brand); border-radius:12px; box-shadow:0 0 0 4px rgba(245,179,1,.3); transition:left .25s,top .25s,width .25s,height .25s; pointer-events:none; }
+.tour-card{ position:fixed; z-index:2; width:min(320px, calc(100vw - 24px)); padding:14px 16px; background:var(--c-bg2); border:1px solid var(--c-brand); border-radius:var(--r-lg); box-shadow:0 10px 34px rgba(0,0,0,.55); }
+.tour-card__step{ font-size:.7rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--c-brand-2); margin-bottom:6px; }
+.tour-card h3{ margin:0 0 6px; font-size:.98rem; }
+.tour-card p{ margin:0 0 14px; font-size:.86rem; line-height:1.55; color:#cbd5e1; }
+.tour-card__nav{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.tour-btn{ padding:9px 13px; border-radius:var(--r-md); border:1.5px solid var(--c-border); background:var(--c-surface); font-weight:800; font-size:.8rem; white-space:nowrap; }
+.tour-btn--primary{ background:var(--g-brand); border-color:transparent; color:var(--c-on-brand); }
 </style>
 </head>
 <body>
@@ -187,32 +210,46 @@ body.is-lite *,body.is-lite *::before,body.is-lite *::after{ animation:none !imp
     <h2 id="pickerTit">Qual é a sua base?</h2>
     <p>Salve o link da sua base — ele termina em <b>?base=SUABASE</b>.</p>
     <div class="picker__list" id="pickerLista"></div>
+    <p class="picker__demo">ou <a href="?base=DEMO&amp;tour=1">🧪 veja uma demonstração guiada (dados fictícios)</a></p>
   </section>
 
   <div id="painel" class="is-hidden">
+    <div class="banner banner--demo is-hidden" id="demoBanner" role="status">
+      🧪 <b>Modo demonstração</b> — dados fictícios; nada aqui é salvo ou enviado de verdade.
+      <button type="button" class="demo-btn" data-acao="tour-iniciar">▶ Tour guiado</button>
+      <a class="demo-btn" href="?">Sair da demonstração</a>
+    </div>
     <div class="tabs" role="tablist" aria-label="Visualização">
       <button type="button" class="tab" role="tab" id="tabLista" data-acao="vista" data-v="lista" aria-selected="true">☰ Lista</button>
       <button type="button" class="tab" role="tab" id="tabMapa" data-acao="vista" data-v="mapa" aria-selected="false">▦ Mapa de vagas</button>
       <button type="button" class="tab" role="tab" id="tabAuditoria" data-acao="vista" data-v="auditoria" aria-selected="false">🔍 Auditoria</button>
     </div>
     <div id="aviso"></div>
-    <div class="kpis" id="kpis" aria-label="Resumo"></div>
-    <div class="toolbar">
-      <label class="visually-hidden" for="busca">Buscar</label>
-      <input class="search" id="busca" type="search" placeholder="Buscar rota, motorista, vaga…" autocomplete="off">
-      <button type="button" class="toggle" data-acao="filtro" data-f="pend" aria-pressed="false">Só pendentes</button>
-      <button type="button" class="toggle toggle--brand" data-acao="filtro" data-f="naoChamados" aria-pressed="false">Não chamados</button>
-      <button type="button" class="toggle toggle--brand is-hidden" id="togKangu" data-acao="filtro" data-f="kangu" aria-pressed="false">Só Kangu</button>
-    </div>
+    <section class="painel-resumo" aria-label="Resumo e busca">
+      <div class="kpis" id="kpis" aria-label="Resumo"></div>
+      <div class="toolbar">
+        <label class="visually-hidden" for="busca">Buscar</label>
+        <input class="search" id="busca" type="search" placeholder="Buscar rota, motorista, vaga…" autocomplete="off">
+        <button type="button" class="toggle" data-acao="filtro" data-f="pend" aria-pressed="false">Só pendentes</button>
+        <button type="button" class="toggle toggle--brand" data-acao="filtro" data-f="naoChamados" aria-pressed="false">Não chamados</button>
+        <button type="button" class="toggle toggle--brand is-hidden" id="togKangu" data-acao="filtro" data-f="kangu" aria-pressed="false">Só Kangu</button>
+      </div>
+    </section>
     <div id="conteudo" aria-live="polite"><div class="empty"><span class="spinner" aria-hidden="true"></span>buscando o carregamento…</div></div>
   </div>
 </main>
 
 <footer class="footer">
   Tropa da Kangu · atualiza sozinho · nomes abreviados por privacidade ·
-  <button type="button" data-acao="privacidade">Privacidade</button><br>
+  <button type="button" data-acao="privacidade">Privacidade</button> ·
+  <a href="?base=DEMO&amp;tour=1">Modo demonstração</a><br>
   "Chamado" fica salvo só neste aparelho e zera no dia seguinte.
 </footer>
+
+<div class="tour-overlay" id="tourOverlay" role="dialog" aria-modal="true" aria-label="Tour guiado da demonstração">
+  <div class="tour-spot" id="tourSpot"></div>
+  <div class="tour-card" id="tourCard"></div>
+</div>
 
 <div class="sheet" id="sheetPriv" role="dialog" aria-modal="true" aria-labelledby="privTit">
   <div class="sheet__bg" data-acao="fechar"></div>
@@ -255,6 +292,11 @@ const esc = v => String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({ '&':'&a
 const ls = { get(k, p){ try{ const v = localStorage.getItem(k); return v == null ? p : v; }catch(_){ return p; } }, set(k, v){ try{ localStorage.setItem(k, v); }catch(_){} } };
 const hojeSP = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 const BASE = (new URLSearchParams(location.search).get('base') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+// v1.9.81: MODO DEMONSTRAÇÃO — ?base=DEMO carrega dados 100% fictícios (nunca toca o worker real) e
+// liga o banner + o tour guiado (?tour=1). Serve pra treinar/mostrar a ferramenta sem usar dado real
+// de ninguém — e também responde "dá pra testar sem risco?" do relatório de conformidade.
+const DEMO = BASE === 'DEMO';
+const CHAVE_OPERADOR = DEMO ? 'carr_audit_operador_demo' : 'carr_audit_operador';
 
 /* =====================================================================
    ESTADO
@@ -296,7 +338,35 @@ async function getJson(url){
     return await r.json();
   } finally { clearTimeout(tid); }
 }
+// v1.9.81: dados fictícios do modo demonstração — 4 rotas/veículos cobrindo os 4 estados de
+// auditoria (nunca, em dia, prazo vencido, pausado), pra ver tudo de uma vez sem precisar de dado
+// real. st._demoVeiculos é criado UMA vez (não a cada atualização) pra guardar o que o próprio
+// usuário for "registrando" durante a demonstração, em vez de resetar a cada 20s.
+const DEMO_LINHAS = [
+  { rota:'D1_AM1', motorista:'Ana Fictícia', doca:'12', onda:1, tempoMin:8, status:'PENDENTE', processo:'', subiu:false, transportadora:'Kangu', cidade:'—' },
+  { rota:'D2_AM1', motorista:'Bruno Exemplo', doca:'14', onda:1, tempoMin:'', status:'SUBIU', processo:'', subiu:true, transportadora:'Kangu', cidade:'—' },
+  { rota:'D3_PM1', motorista:'Carla Teste', doca:'7', onda:2, tempoMin:22, status:'EM_ROTA', processo:'', subiu:true, transportadora:'Outra', cidade:'—' },
+  { rota:'D4_PM1', motorista:'Diego Amostra', doca:'3', onda:2, tempoMin:'', status:'FINALIZADA', processo:'Expedida', subiu:true, transportadora:'Kangu', cidade:'—' }
+];
+function demoVeiculosIniciais(){
+  return [
+    { placa:'DEMO-0001', motorista:'Ana Fictícia', rota:'D1_AM1', situacao:'nunca', ultimaAuditoria:'nunca' },
+    { placa:'DEMO-0002', motorista:'Bruno Exemplo', rota:'D2_AM1', situacao:'ok', ultimaAuditoria:'01/09/2026', proximaAuditoria:'16/09/2026' },
+    { placa:'DEMO-0003', motorista:'Carla Teste', rota:'D3_PM1', situacao:'prazoVencido', ultimaAuditoria:'10/08/2026', prazoRegularizacao:'20/08/2026' },
+    { placa:'DEMO-0004', motorista:'Diego Amostra', rota:'D4_PM1', situacao:'pausado', motivoPausa:'Pneu careca (fictício)', ultimaAuditoria:'15/08/2026' }
+  ];
+}
+function atualizarDemo(){
+  if(!st._demoVeiculos) st._demoVeiculos = demoVeiculosIniciais();
+  st.carr = { found:true, dadosEm: new Date().toISOString(), linhas: DEMO_LINHAS };
+  st.odc = {}; DEMO_LINHAS.forEach(l => { st.odc[l.rota] = { transportadora:l.transportadora, vaga:l.doca, onda:l.onda }; });
+  st.disp = {};
+  st.audit = { itensConfig: auditItensPadrao(), intervaloDias:15, totalFrota: st._demoVeiculos.length, veiculos: st._demoVeiculos };
+  st.auditIndisponivel = false; st.auditErro = ''; st.erroSeguidos = 0; st.ultimaOk = Date.now();
+  render(); agendar();
+}
 async function atualizar(){
+  if(DEMO){ atualizarDemo(); return; }
   try{
     const [c, o, d, a] = await Promise.all([
       getJson(CFG.WORKER + '/carregamento?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()),
@@ -549,7 +619,7 @@ function auditRenderSheet(){
   // preserva o que já foi digitado (observação/prazo/dias/PIN) — cada toggle de item
   // reconstrói o HTML inteiro do sheet, então sem isso o texto digitado se perderia.
   const preservar = {};
-  ['auditObs', 'auditPrazo', 'auditDias', 'auditPin'].forEach(id => { const el = $(id); if(el) preservar[id] = el.value; });
+  ['auditObs', 'auditPrazo', 'auditDias', 'auditOperador', 'auditPin'].forEach(id => { const el = $(id); if(el) preservar[id] = el.value; });
   const nc = _auditAtual.itens.filter(it => !it.ok);
   const critico = nc.some(it => it.critico);
   const intervalo = (st.audit && st.audit.intervaloDias) || 15;
@@ -566,7 +636,11 @@ function auditRenderSheet(){
   h += '<div class="afield"><label>Observação (opcional)</label><textarea id="auditObs" rows="2"></textarea></div>';
   if(!critico && nc.length) h += '<div class="afield"><label>Prazo pra regularizar</label><input id="auditPrazo" placeholder="dd/mm/aaaa" value="' + esc(auditPrazoPadrao()) + '"></div>';
   if(critico) h += '<div class="afield"><label>Pausar por quantos dias</label><input id="auditDias" type="number" min="1" value="365"></div>';
-  h += '<div class="afield"><label>PIN da base (confirma quem está auditando)</label><input id="auditPin" type="password" inputmode="numeric" placeholder="PIN"></div>';
+  // v1.9.81: "Seu nome" — sem isso, a planilha só sabia QUE BASE auditou (o PIN é compartilhado),
+  // nunca QUEM. O campo "operador" já existia na planilha (AUDIT_COLS); só nunca tinha sido
+  // preenchido pela página pública. Fica salvo neste aparelho (ls) só pra não digitar de novo.
+  h += '<div class="afield"><label>Seu nome (quem está auditando)</label><input id="auditOperador" placeholder="Nome e sobrenome" value="' + esc(ls.get(CHAVE_OPERADOR, '')) + '"></div>';
+  h += '<div class="afield"><label>PIN da base (confirma que você pode registrar)</label><input id="auditPin" type="password" inputmode="numeric" placeholder="' + (DEMO ? '0000 (demonstração)' : 'PIN') + '"></div>';
   h += !nc.length ? ('<p style="color:var(--c-ok-2);font-weight:700">✅ Tudo conforme — próxima auditoria em ' + intervalo + ' dias.</p>')
     : critico ? '<p style="color:var(--c-bad-2);font-weight:700">⏸ Crítico — vai pausar o motorista imediatamente até regularizar.</p>'
     : '<p style="color:var(--c-brand-2);font-weight:700">🟠 Não conforme (regular) — dá um prazo pro motorista regularizar.</p>';
@@ -575,6 +649,7 @@ function auditRenderSheet(){
   Object.keys(preservar).forEach(id => { const el = $(id); if(el && preservar[id]) el.value = preservar[id]; });
 }
 async function auditEnviar(acao, payload, pin){
+  if(DEMO) return auditEnviarDemo(acao, payload, pin);
   const r = await fetch(CFG.WORKER + '/auditoria?base=' + encodeURIComponent(BASE), {
     method:'POST', credentials:'omit', headers:{ 'content-type':'application/json' },
     body: JSON.stringify({ acao, pin, payload })
@@ -582,13 +657,40 @@ async function auditEnviar(acao, payload, pin){
   let j = null; try{ j = await r.json(); }catch(_){}
   return { status: r.status, body: j };
 }
+// v1.9.81: no modo demonstração, nunca sai nenhuma chamada de rede — o "registrar"/"pausar" só muda
+// o estado fictício em memória (st._demoVeiculos), com um pequeno atraso só pra parecer de verdade.
+// O PIN de demonstração é fixo (0000) e isso é dito na tela — não é segredo, é só pra completar o
+// fluxo sem confundir com o PIN real de nenhuma base.
+function auditEnviarDemo(acao, payload, pin){
+  return new Promise(resolve => setTimeout(() => {
+    if(String(pin || '').trim() !== '0000'){ resolve({ status:401, body:{ ok:false } }); return; }
+    const v = (st._demoVeiculos || []).find(x => x.placa === payload.placa);
+    if(acao === 'registrar'){
+      const critico = (payload.itens || []).some(it => !it.ok && it.critico);
+      const naoConforme = (payload.itens || []).some(it => !it.ok);
+      if(v){
+        v.ultimaAuditoria = hojeSP().split('-').reverse().join('/');
+        if(critico){ v.situacao = 'pausado'; v.motivoPausa = 'Auditoria de veículo (crítico) — fictício'; delete v.prazoRegularizacao; }
+        else if(naoConforme){ v.situacao = 'aguardandoRegularizacao'; v.prazoRegularizacao = payload.prazoRegularizacao || auditPrazoPadrao(); }
+        else { v.situacao = 'ok'; v.proximaAuditoria = auditPrazoPadrao(); delete v.prazoRegularizacao; delete v.motivoPausa; }
+      }
+      resolve({ status:200, body:{ ok:true, resultado:{ status: critico ? 'PAUSADO' : (naoConforme ? 'ABERTA' : 'OK'), proximaAuditoria: (v && v.proximaAuditoria) || '', prazoRegularizacao: (v && v.prazoRegularizacao) || '' } } });
+    } else {
+      if(v){ v.situacao = 'pausado'; v.motivoPausa = 'Auditoria vencida, pausado manualmente (fictício)'; }
+      resolve({ status:200, body:{ ok:true, resultado:{} } });
+    }
+  }, 350));
+}
 async function auditRegistrar(){
   if(!_auditAtual) return;
   const nc = _auditAtual.itens.filter(it => !it.ok);
   const critico = nc.some(it => it.critico);
+  const operadorEl = $('auditOperador'), operador = (operadorEl ? operadorEl.value : '').trim();
+  if(!operador){ toast('Digite seu nome pra confirmar quem está auditando.'); return; }
   const pinEl = $('auditPin'), pin = (pinEl ? pinEl.value : '').trim();
   if(!pin){ toast('Digite o PIN da base pra confirmar.'); return; }
-  const payload = { placa: _auditAtual.placa, motorista: _auditAtual.motorista, itens: _auditAtual.itens, observacao: (($('auditObs') || {}).value || '').trim() };
+  ls.set(CHAVE_OPERADOR, operador);
+  const payload = { placa: _auditAtual.placa, motorista: _auditAtual.motorista, itens: _auditAtual.itens, operador, observacao: (($('auditObs') || {}).value || '').trim() };
   if(critico) payload.diasPausa = parseInt((($('auditDias') || {}).value), 10) || 365;
   else if(nc.length) payload.prazoRegularizacao = ($('auditPrazo') || {}).value || '';
   toast('Registrando auditoria…');
@@ -620,17 +722,21 @@ function auditMotivoMsg(body){
 function auditPausarAbrir(placa, motorista){
   const h = '<p>Pausar <b>' + esc(motorista) + '</b> agora por auditoria vencida (não regularizada)?</p>' +
     '<div class="afield"><label>Pausar por quantos dias</label><input id="auditPvDias" type="number" min="1" value="365"></div>' +
-    '<div class="afield"><label>PIN da base</label><input id="auditPvPin" type="password" inputmode="numeric" placeholder="PIN"></div>' +
+    '<div class="afield"><label>Seu nome (quem está pausando)</label><input id="auditPvOperador" placeholder="Nome e sobrenome" value="' + esc(ls.get(CHAVE_OPERADOR, '')) + '"></div>' +
+    '<div class="afield"><label>PIN da base</label><input id="auditPvPin" type="password" inputmode="numeric" placeholder="' + (DEMO ? '0000 (demonstração)' : 'PIN') + '"></div>' +
     '<button type="button" class="abtn abtn--bad" data-acao="audit-pausar-confirmar" data-placa="' + esc(placa) + '" data-motorista="' + esc(motorista) + '">Pausar</button>';
   $('auditCorpo').innerHTML = h;
   $('sheetAudit').classList.add('sheet--open');
 }
 async function auditPausarConfirmar(placa, motorista){
+  const operadorEl = $('auditPvOperador'), operador = (operadorEl ? operadorEl.value : '').trim();
+  if(!operador){ toast('Digite seu nome pra confirmar quem está pausando.'); return; }
   const pinEl = $('auditPvPin'), pin = (pinEl ? pinEl.value : '').trim();
   if(!pin){ toast('Digite o PIN da base pra confirmar.'); return; }
+  ls.set(CHAVE_OPERADOR, operador);
   const dias = parseInt((($('auditPvDias') || {}).value), 10) || 365;
   toast('Pausando…');
-  const r = await auditEnviar('pausar_vencida', { placa, motorista, detalhe:'prazo de regularização vencido', diasPausa: dias }, pin);
+  const r = await auditEnviar('pausar_vencida', { placa, motorista, detalhe:'prazo de regularização vencido', diasPausa: dias, operador }, pin);
   if(r.status === 401){ toast('⚠️ PIN incorreto.'); return; }
   if(r.status === 429){ toast('⚠️ Muitas tentativas — aguarde um pouco e tente de novo.'); return; }
   if(!r.body || !r.body.ok){ toast('⚠️ Não consegui pausar: ' + auditMotivoMsg(r.body)); return; }
@@ -638,6 +744,68 @@ async function auditPausarConfirmar(placa, motorista){
   // v1.9.76: "modo empurrar" — quem pausa de verdade é o gatilho do Apps Script, alguns segundos depois.
   if(r.body.modo === 'form'){ toast('Enviado! Aplicando em alguns segundos… ✔'); setTimeout(atualizar, 4000); return; }
   toast(motorista + ' pausado por auditoria vencida. ✔'); atualizar();
+}
+
+/* =====================================================================
+   TOUR GUIADO (v1.9.81) — só existe dentro do modo demonstração. Destaca um
+   elemento por vez (spotlight) com um cartão explicando, e pode executar uma
+   ação (trocar de aba, abrir o checklist) antes de medir e posicionar.
+   ===================================================================== */
+const TOUR_PASSOS = [
+  { titulo:'Modo demonstração', texto:'Essa tela é uma demonstração com dados fictícios — nenhuma informação real aparece ou é enviada a lugar nenhum. Pode clicar em tudo sem medo. Vamos fazer um tour rápido pelas 3 abas?' },
+  { sel:'.tabs', titulo:'Três visões da operação', texto:'"Lista" mostra as rotas do dia. "Mapa de vagas" cruza a mesma informação por vaga física no pátio. "Auditoria" mostra a situação de auditoria de cada veículo — vamos ver as três.' },
+  { sel:'.painel-resumo', titulo:'Resumo e busca', texto:'Os números resumem a aba que está aberta no momento. Aqui também dá pra buscar por rota, motorista ou vaga, e aplicar filtros.' },
+  { sel:'#conteudo', titulo:'Lista de rotas', texto:'Cada card é uma rota. "📣 Chamar" fica salvo só neste aparelho. Quando a rota tem um veículo vinculado, aparece também "🔍 Auditar" bem ao lado — sem precisar abrir a aba Auditoria à parte.', acao:() => { st.vista = 'lista'; render(); } },
+  { sel:'#tabMapa', titulo:'Mapa de vagas', texto:'Essa aba mostra a mesma operação organizada por vaga — útil pra achar rápido onde cada rota está no pátio agora.', acao:() => { st.vista = 'mapa'; render(); } },
+  { sel:'#tabAuditoria', titulo:'Auditoria de veículos', texto:'Aqui é o fluxo que você perguntou se é confiável. Cada veículo com rota hoje aparece com sua situação.', acao:() => { st.vista = 'auditoria'; render(); } },
+  { sel:'#conteudo', titulo:'Situação de cada veículo', texto:'Estes são os 4 estados possíveis — nunca auditado, em dia, prazo vencido e pausado — com um exemplo fictício de cada um, pra você ver todos de uma vez.' },
+  { sel:'#sheetAudit .sheet__panel', titulo:'Checklist de auditoria', texto:'Ao clicar em "🔍 Auditar", abre esse checklist item por item. Marcar algo como "Não conforme" pede a gravidade: Regular (dá um prazo pra regularizar) ou Crítico (pausa o motorista na hora).', acao:() => auditAbrir('DEMO-0001', 'Ana Fictícia'), espera:80 },
+  { sel:'#auditOperador', titulo:'Quem está auditando', texto:'Esse campo é a resposta pro ponto mais importante do relatório de conformidade: ele grava QUEM fez a auditoria, junto com o resto do registro na planilha. Sem ele, só dava pra provar "a base tal auditou", nunca "a pessoa tal".' },
+  { sel:'#auditPin', titulo:'PIN da base', texto:'Só quem tem o PIN da base consegue registrar ou pausar — ver a situação continua livre pra qualquer um. No modo demonstração, o PIN é sempre 0000.' },
+  { titulo:'Fim do tour', texto:'Isso foi só a demonstração — nenhum dado real foi tocado. Pode continuar clicando à vontade, ou sair quando quiser pelo aviso azul no topo ou pelo link no rodapé.', acao:() => { const sh = $('sheetAudit'); if(sh) sh.classList.remove('sheet--open'); } }
+];
+let _tourPasso = 0;
+function tourIniciar(){ _tourPasso = 0; $('tourOverlay').classList.add('is-on'); tourMostrar(0); }
+function tourFechar(){ $('tourOverlay').classList.remove('is-on'); }
+function tourMostrar(i){
+  if(i < 0) i = 0;
+  if(i >= TOUR_PASSOS.length){ tourFechar(); return; }
+  _tourPasso = i;
+  const p = TOUR_PASSOS[i];
+  if(p.acao){ try{ p.acao(); }catch(_){} }
+  setTimeout(() => tourPosicionar(p), p.espera || 0);
+}
+function tourPosicionar(p){
+  const spot = $('tourSpot'), card = $('tourCard');
+  const el = p.sel ? document.querySelector(p.sel) : null;
+  if(el){
+    el.scrollIntoView({ block:'center', behavior:'smooth' });
+    setTimeout(() => {
+      const r = el.getBoundingClientRect();
+      spot.style.display = 'block';
+      spot.style.left = (r.left - 6) + 'px'; spot.style.top = (r.top - 6) + 'px';
+      spot.style.width = Math.max(0, r.width + 12) + 'px'; spot.style.height = Math.max(0, r.height + 12) + 'px';
+      card.style.transform = 'none';
+      const abaixo = r.bottom + 220 < window.innerHeight;
+      card.style.left = Math.max(12, Math.min(r.left, window.innerWidth - 332)) + 'px';
+      card.style.top = (abaixo ? (r.bottom + 14) : Math.max(12, r.top - 194)) + 'px';
+      tourMontarCard();
+    }, 260);
+  } else {
+    spot.style.display = 'none';
+    card.style.left = '50%'; card.style.top = '50%'; card.style.transform = 'translate(-50%,-50%)';
+    tourMontarCard();
+  }
+}
+function tourMontarCard(){
+  const p = TOUR_PASSOS[_tourPasso];
+  $('tourCard').innerHTML = '<div class="tour-card__step">Passo ' + (_tourPasso + 1) + ' de ' + TOUR_PASSOS.length + '</div>' +
+    '<h3>' + esc(p.titulo) + '</h3><p>' + esc(p.texto) + '</p>' +
+    '<div class="tour-card__nav">' +
+      (_tourPasso > 0 ? '<button type="button" class="tour-btn" data-acao="tour-ant">◀ Voltar</button>' : '<span></span>') +
+      '<button type="button" class="tour-btn" data-acao="tour-fechar">Pular</button>' +
+      '<button type="button" class="tour-btn tour-btn--primary" data-acao="tour-prox">' + (_tourPasso === TOUR_PASSOS.length - 1 ? 'Concluir' : 'Próximo ▶') + '</button>' +
+    '</div>';
 }
 
 /* =====================================================================
@@ -666,13 +834,18 @@ document.addEventListener('click', e => {
     const i = parseInt(el.dataset.i, 10);
     if(_auditAtual && _auditAtual.itens[i]){ _auditAtual.itens[i].ok = el.dataset.ok === '1'; auditRenderSheet(); }
   }
+  // v1.9.81: tour guiado do modo demonstração
+  else if(a === 'tour-iniciar') tourIniciar();
+  else if(a === 'tour-prox') tourMostrar(_tourPasso + 1);
+  else if(a === 'tour-ant') tourMostrar(_tourPasso - 1);
+  else if(a === 'tour-fechar') tourFechar();
 });
 document.addEventListener('change', e => {
   const el = e.target.closest('[data-acao="audit-sev"]'); if(!el) return;
   const i = parseInt(el.dataset.i, 10);
   if(_auditAtual && _auditAtual.itens[i]) _auditAtual.itens[i].critico = el.value === 'critico';
 });
-document.addEventListener('keydown', e => { if(e.key === 'Escape'){ $('sheetPriv').classList.remove('sheet--open'); $('sheetAudit').classList.remove('sheet--open'); } });
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ $('sheetPriv').classList.remove('sheet--open'); $('sheetAudit').classList.remove('sheet--open'); tourFechar(); } });
 let _buscaT = null; $('busca').addEventListener('input', () => { clearTimeout(_buscaT); _buscaT = setTimeout(render, 150); });
 document.addEventListener('visibilitychange', () => { if(document.hidden) clearTimeout(st.timer); else atualizar(); });
 setInterval(renderLive, 30000);
@@ -691,6 +864,13 @@ setInterval(renderLive, 30000);
   }
   $('tagBase').textContent = BASE; $('tagBase').hidden = false; document.title = 'Carregamento ' + BASE + ' — Kangu';
   $('painel').classList.remove('is-hidden');
+  // v1.9.81: modo demonstração — banner fixo (nunca deixa confundir com uma base real) + tour
+  // automático quando chega pelo link com ?tour=1 (picker e rodapé já linkam assim).
+  if(DEMO){
+    $('demoBanner').classList.remove('is-hidden');
+    document.title = 'Demonstração — Kangu';
+    if(/(^|[?&])tour=1(&|$)/.test(location.search)) setTimeout(tourIniciar, 400);
+  }
   limparChamadosAntigos(); render(); atualizar();
 })();
 </script>
