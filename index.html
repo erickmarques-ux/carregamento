@@ -2,7 +2,7 @@
 <!-- =====================================================================
      DOCUMENTO CONTROLADO (ISO 9001 · 7.5) — KNG-CARR-PUB
      Sistema: Carregamento ao vivo — link único para todas as bases (?base=SMG15)
-     Versão: 2.5.0 · Data: 2026-10-01
+     Versão: 2.7.0 · Data: 2026-10-02
      Controlador (LGPD): Ebazar.com.br Ltda. (Mercado Livre) — operação Kangu
      Dados exibidos: rota/gaiola, vaga, onda, status e NOME ABREVIADO do motorista (sem placa).
      ===================================================================== -->
@@ -464,7 +464,10 @@ function cardRota(l, ch, porRota){
   let auditBadge = '', auditBtn = '';
   if(v){
     const L = AUDIT_SIT[v.situacao] || AUDIT_SIT.nunca;
-    if(L.cls === 'bad' || L.cls === 'warn') auditBadge = '<span class="abadge abadge--' + L.cls + '">' + esc(L.txt) + '</span>';
+    // v2.6.0: antes só aparecia o selo quando dava problema (bad/warn) — "nem está indicando que o
+    // driver já foi auditado" (usuário). Agora aparece SEMPRE, incluindo "✅ Em dia" e "❔ Nunca
+    // auditado" — é exatamente essa distinção que faltava pra dar controle visual na Lista.
+    auditBadge = '<span class="abadge abadge--' + L.cls + '">' + esc(L.txt) + '</span>';
     auditBtn = '<button type="button" class="call" data-acao="audit-abrir" data-placa="' + esc(v.placa) + '" data-motorista="' + esc(v.motorista) + '">🔍 ' +
       (v.situacao === 'nunca' || v.situacao === 'ok' || v.situacao === 'venceHoje' ? 'Auditar' : 'Reauditar') + '</button>';
   }
@@ -654,14 +657,25 @@ function auditRenderSheet(){
   $('auditCorpo').innerHTML = h;
   Object.keys(preservar).forEach(id => { const el = $(id); if(el && preservar[id]) el.value = preservar[id]; });
 }
+// v2.7.0: (1) sem rede, o fetch rejeitava e ninguém tratava — o aviso "Registrando…" sumia e não aparecia erro
+// nenhum; agora volta { semRede:true } e a tela diz que NÃO registrou. (2) toque duplo no botão mandava 2
+// registros (2 auditorias, 2 pausas): enquanto um envio está em andamento, o segundo é ignorado.
+let _auditEnviando = false;
 async function auditEnviar(acao, payload, pin){
-  if(DEMO) return auditEnviarDemo(acao, payload, pin);
-  const r = await fetch(CFG.WORKER + '/auditoria?base=' + encodeURIComponent(BASE), {
-    method:'POST', credentials:'omit', headers:{ 'content-type':'application/json' },
-    body: JSON.stringify({ acao, pin, payload })
-  });
-  let j = null; try{ j = await r.json(); }catch(_){}
-  return { status: r.status, body: j };
+  if(_auditEnviando) return { emAndamento:true };
+  _auditEnviando = true;
+  try{
+    if(DEMO) return await auditEnviarDemo(acao, payload, pin);
+    let r;
+    try{
+      r = await fetch(CFG.WORKER + '/auditoria?base=' + encodeURIComponent(BASE), {
+        method:'POST', credentials:'omit', headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({ acao, pin, payload })
+      });
+    }catch(_){ return { semRede:true }; }
+    let j = null; try{ j = await r.json(); }catch(_){}
+    return { status: r.status, body: j };
+  } finally { _auditEnviando = false; }
 }
 // v1.9.81: no modo demonstração, nunca sai nenhuma chamada de rede — o "registrar"/"pausar" só muda
 // o estado fictício em memória (st._demoVeiculos), com um pequeno atraso só pra parecer de verdade.
@@ -701,19 +715,28 @@ async function auditRegistrar(){
   else if(nc.length) payload.prazoRegularizacao = ($('auditPrazo') || {}).value || '';
   toast('Registrando auditoria…');
   const r = await auditEnviar('registrar', payload, pin);
+  if(r.emAndamento) return;   // toque duplo: o primeiro envio ainda está indo
+  if(r.semRede){ toastLongo('⚠️ Sem conexão — a auditoria NÃO foi registrada. Confira a internet e toque em registrar de novo.'); return; }
+  if(!_auditAtual) return;
   if(r.status === 401){ toast('⚠️ PIN incorreto.'); return; }
   if(r.status === 429){ toast('⚠️ Muitas tentativas — aguarde um pouco e tente de novo.'); return; }
   if(r.status === 501){ toast('⚠️ Auditoria não configurada pra essa base.'); return; }
   if(!r.body || !r.body.ok){ toast('⚠️ Não consegui registrar: ' + auditMotivoMsg(r.body)); return; }
+  // v2.7.0: BUG — _auditAtual era zerado aqui e usado 6 linhas abaixo (_auditAtual.motorista): ao registrar
+  // uma não conformidade CRÍTICA fora do "modo empurrar" (e no modo demonstração), a página quebrava depois
+  // de gravar: ficava em "Registrando auditoria…" pra sempre, sem confirmar e sem atualizar a lista.
+  const motoristaAuditado = _auditAtual.motorista;
   $('sheetAudit').classList.remove('sheet--open'); _auditAtual = null;
   // v1.9.76: bases no "modo empurrar" (ver MUDANCAS.md) não têm o resultado na hora — quem registra
   // de verdade é um gatilho do Apps Script, alguns segundos depois. Mostra "enviado" e atualiza sozinho.
   if(r.body.modo === 'form'){ toast('Enviado! Aplicando em alguns segundos… ✔'); setTimeout(atualizar, 4000); return; }
   const res = r.body.resultado || {};
   const msg = res.status === 'OK' ? ('Tudo certo! Próxima auditoria: ' + (res.proximaAuditoria || '—'))
-    : res.status === 'PAUSADO' ? (_auditAtual.motorista + ' pausado até regularizar.')
+    : res.status === 'PAUSADO' ? (motoristaAuditado + ' pausado até regularizar.')
     : res.status === 'ABERTA' ? ('Registrado — prazo pra regularizar: ' + (res.prazoRegularizacao || '—'))
     : 'Auditoria registrada.';
+  // v2.7.0: a planilha (Torre_Base v4.16+) avisa quando gravou a auditoria mas NÃO conseguiu criar a pausa.
+  if(res.pausaFalhou){ toastLongo('⚠️ Auditoria registrada, mas a PAUSA de ' + motoristaAuditado + ' NÃO entrou — avise o responsável da base agora; ele continua liberado.'); atualizar(); return; }
   toast(msg + ' ✔'); atualizar();
 }
 // v1.9.76: mensagem pro "modo empurrar" (POST /auditoria via Google Form) quando o Google recusa o
@@ -743,12 +766,15 @@ async function auditPausarConfirmar(placa, motorista){
   const dias = parseInt((($('auditPvDias') || {}).value), 10) || 365;
   toast('Pausando…');
   const r = await auditEnviar('pausar_vencida', { placa, motorista, detalhe:'prazo de regularização vencido', diasPausa: dias, operador }, pin);
+  if(r.emAndamento) return;
+  if(r.semRede){ toastLongo('⚠️ Sem conexão — a pausa NÃO foi registrada. Confira a internet e tente de novo.'); return; }
   if(r.status === 401){ toast('⚠️ PIN incorreto.'); return; }
   if(r.status === 429){ toast('⚠️ Muitas tentativas — aguarde um pouco e tente de novo.'); return; }
   if(!r.body || !r.body.ok){ toast('⚠️ Não consegui pausar: ' + auditMotivoMsg(r.body)); return; }
   $('sheetAudit').classList.remove('sheet--open');
   // v1.9.76: "modo empurrar" — quem pausa de verdade é o gatilho do Apps Script, alguns segundos depois.
   if(r.body.modo === 'form'){ toast('Enviado! Aplicando em alguns segundos… ✔'); setTimeout(atualizar, 4000); return; }
+  if(r.body.resultado && r.body.resultado.pausaFalhou){ toastLongo('⚠️ A PAUSA de ' + motorista + ' NÃO entrou — avise o responsável da base agora; ele continua liberado.'); atualizar(); return; }
   toast(motorista + ' pausado por auditoria vencida. ✔'); atualizar();
 }
 
@@ -818,7 +844,8 @@ function tourMontarCard(){
    INTERAÇÃO (delegação — sem onclick inline)
    ===================================================================== */
 let _toastT = null;
-function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('toast--on'); clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('toast--on'), 2800); }
+function toast(msg, ms){ const t = $('toast'); t.textContent = msg; t.classList.add('toast--on'); clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('toast--on'), ms || 2800); }
+function toastLongo(msg){ toast(msg, 12000); }   // aviso que não pode passar batido
 function aplicarFonte(n){ const h = document.documentElement; h.classList.remove('fonte-1', 'fonte-2'); if(n) h.classList.add('fonte-' + n); $('btFonte').textContent = n === 2 ? 'A' : (n === 1 ? 'A++' : 'A+'); $('btFonte').setAttribute('aria-pressed', n ? 'true' : 'false'); }
 function ligarLeve(){ if(ls.get('carr_leve', '') === '0') return; document.body.classList.add('is-lite'); ls.set('carr_leve', '1'); }
 document.addEventListener('click', e => {
