@@ -2,7 +2,7 @@
 <!-- =====================================================================
      DOCUMENTO CONTROLADO (ISO 9001 · 7.5) — KNG-CARR-PUB
      Sistema: Carregamento ao vivo — link único para todas as bases (?base=SMG15)
-     Versão: 2.7.0 · Data: 2026-10-02
+     Versão: 2.8.0 · Data: 2026-10-03
      Controlador (LGPD): Ebazar.com.br Ltda. (Mercado Livre) — operação Kangu
      Dados exibidos: rota/gaiola, vaga, onda, status e NOME ABREVIADO do motorista (sem placa).
      ===================================================================== -->
@@ -291,7 +291,9 @@ const CFG = Object.freeze({
   WORKER: 'https://worker-kangu.erick-marques.workers.dev',
   ODC: 'https://worker-odc.erick-marques.workers.dev',
   BASES: ['SMG1', 'SMG8', 'SMG14', 'SMG15'],    // só para a tela de escolha (qualquer ?base= funciona)
-  REFRESH_MS: 20000, REFRESH_LEVE_MS: 60000, VELHO_MIN: 15
+  REFRESH_MS: 20000, REFRESH_LEVE_MS: 60000, VELHO_MIN: 15,
+  // v2.8.0: sem mudança nenhuma na tela, as consultas vão se espaçando (20 s → 30 s → 60 s) e voltam a 20 s quando algo muda
+  REFRESH_CALMO_MS: 30000, REFRESH_PARADO_MS: 60000, CALMO_APOS: 6, PARADO_APOS: 20
 });
 const $ = id => document.getElementById(id);
 const esc = v => String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;' }[c]));
@@ -310,7 +312,8 @@ const CHAVE_OPERADOR = DEMO ? 'carr_audit_operador_demo' : 'carr_audit_operador'
 const st = {
   vista: ls.get('carr_vista', 'lista'), pend: ls.get('carr_pend', '0') === '1', naoChamados: false, kangu: ls.get('carr_kangu', '0') === '1',
   carr: null, odc: {}, disp: {}, erroSeguidos: 0, timer: null, ultimaOk: 0,
-  audit: null, auditIndisponivel: false, auditErro: ''   // v1.9.70: auditoria de veículos (sem precisar da Torre aberta)
+  audit: null, auditIndisponivel: false, auditErro: '',   // v1.9.70: auditoria de veículos (sem precisar da Torre aberta)
+  semPainel: 0, odcDireto: false, odcProximo: 0, sig: '', iguais: 0, esperaMs: 0   // v2.8.0: ver atualizar()/agendar()
 };
 
 /* =====================================================================
@@ -371,36 +374,85 @@ function atualizarDemo(){
   st.auditIndisponivel = false; st.auditErro = ''; st.erroSeguidos = 0; st.ultimaOk = Date.now();
   render(); agendar();
 }
+// v2.8.0: UM pedido por atualização. Antes eram 4 (carregamento + auditoria no worker-kangu, ODC + dispatch no
+// worker-odc) a cada 20 s, por aparelho com a página aberta — numa conta gratuita da Cloudflare (100.000
+// pedidos por dia, somando tudo) uma TV ligada o dia inteiro gastava sozinha ~8.600. O worker-kangu v2.17+
+// devolve tudo em GET /painel. Se o worker ainda for antigo (responde 404), a página volta aos 4 pedidos de
+// sempre e tenta o /painel de novo a cada 10 min.
+async function buscarAntigo(){
+  const [c, o, d, a] = await Promise.all([
+    getJson(CFG.WORKER + '/carregamento?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()),
+    getJson(CFG.ODC + '/odc?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null),
+    getJson(CFG.ODC + '/dispatch?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null),
+    // v1.9.70: auditoria de veículos — mesmo worker, rota nova; falha aqui nunca derruba o resto da tela
+    getJson(CFG.WORKER + '/auditoria?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(e => ({ ok:false, erro: String(e && e.message || e) }))
+  ]);
+  if(a && !a.ok && a.http == null) a.http = /\b501\b/.test(a.erro || '') ? 501 : 0;
+  return { c, o, d, a };
+}
+async function buscarTudo(){
+  if(st.semPainel && Date.now() < st.semPainel) return buscarAntigo();
+  let p;
+  try{ p = await getJson(CFG.WORKER + '/painel?base=' + encodeURIComponent(BASE)); }
+  catch(e){
+    if(/HTTP 404/.test(String(e && e.message || e))){ st.semPainel = Date.now() + 10 * 60000; return buscarAntigo(); }   // worker anterior à v2.17
+    throw e;
+  }
+  if(!p || !p.ok || !p.carregamento) throw new Error('painel sem dados');
+  st.semPainel = 0;
+  let o = p.odc, d = p.dispatch;
+  // odc/dispatch = null: o banco do worker-kangu não tem nada do mapa de vagas. Ou ninguém publicou ainda, ou
+  // os dois workers usam bancos diferentes — pergunta direto ao worker-odc: se ELE tiver dado, passa a
+  // perguntar sempre; se também não tiver, só confere de novo em 5 min.
+  if((o == null || d == null) && (st.odcDireto || Date.now() >= st.odcProximo)){
+    const [o2, d2] = await Promise.all([
+      o == null ? getJson(CFG.ODC + '/odc?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null) : o,
+      d == null ? getJson(CFG.ODC + '/dispatch?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null) : d ]);
+    const temDado = (o == null && o2 && Object.keys(o2.ciclos || {}).length > 0) || (d == null && d2 && Object.keys(d2.mapa || {}).length > 0);
+    if(temDado) st.odcDireto = true; else if(!st.odcDireto) st.odcProximo = Date.now() + 5 * 60000;
+    o = o2; d = d2;
+  }
+  return { c: p.carregamento, o: o, d: d, a: p.auditoria || { ok:false, http:0, erro:'sem resposta da auditoria' } };
+}
 async function atualizar(){
   if(DEMO){ atualizarDemo(); return; }
   try{
-    const [c, o, d, a] = await Promise.all([
-      getJson(CFG.WORKER + '/carregamento?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()),
-      getJson(CFG.ODC + '/odc?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null),
-      getJson(CFG.ODC + '/dispatch?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(() => null),
-      // v1.9.70: auditoria de veículos — mesmo worker, rota nova; falha aqui nunca derruba o resto da tela
-      getJson(CFG.WORKER + '/auditoria?base=' + encodeURIComponent(BASE) + '&t=' + Date.now()).catch(e => ({ ok:false, erro: String(e && e.message || e) }))
-    ]);
+    const { c, o, d, a } = await buscarTudo();
     st.carr = c;
     if(o){ const m = {}; Object.values(o.ciclos || {}).forEach(ci => (ci.rotas || []).forEach(x => { if(x && x.rota) m[String(x.rota).toUpperCase()] = x; })); st.odc = m; }
     if(d) st.disp = d.mapa || {};
     if(a && a.ok){ st.audit = a.resultado || null; st.auditIndisponivel = false; st.auditErro = ''; }
     else {
-      st.auditIndisponivel = /\b501\b/.test((a && a.erro) || '');
+      st.auditIndisponivel = !!(a && a.http === 501);
       // v1.9.74: "deu erro" — antes, qualquer falha que NÃO fosse "não configurada" (501) deixava a
       // tela presa pra sempre em "carregando…", sem nenhuma pista do que aconteceu. Agora guarda o
       // erro real (o worker já manda status HTTP + pista do que é) pra mostrar em vez do spinner infinito.
       if(!st.auditIndisponivel) st.auditErro = (a && a.erro) || 'erro desconhecido';
     }
     st.erroSeguidos = 0; st.ultimaOk = Date.now();
+    // mudou alguma coisa desde a última consulta? Não contam os carimbos de hora nem o "tempo" de cada rota (minutos
+    // em processo: muda sozinho a cada publicação da Torre e seguraria a página no ritmo rápido o dia inteiro) — o
+    // tempo continua sendo mostrado atualizado a cada consulta; só não decide o ritmo.
+    let sig = ''; try{ sig = JSON.stringify([c && c.found, c && c.linhas, st.odc, st.disp, st.audit && st.audit.veiculos, st.auditErro], (k, v) => (k === 'tempoMin' ? undefined : v)); }catch(_){ sig = String(Date.now()); }
+    if(sig !== st.sig){ st.sig = sig; st.iguais = 0; } else st.iguais++;
   }catch(_){ st.erroSeguidos++; }
   render(); agendar();
+}
+function intervaloAtual(){
+  if(leve()) return CFG.REFRESH_LEVE_MS;
+  return st.iguais >= CFG.PARADO_APOS ? CFG.REFRESH_PARADO_MS : (st.iguais >= CFG.CALMO_APOS ? CFG.REFRESH_CALMO_MS : CFG.REFRESH_MS);
 }
 function agendar(){
   clearTimeout(st.timer);
   if(document.hidden) return;                                   // aba escondida: não gasta internet/bateria
-  const base = leve() ? CFG.REFRESH_LEVE_MS : CFG.REFRESH_MS;
-  st.timer = setTimeout(atualizar, st.erroSeguidos ? Math.min(base * (1 + st.erroSeguidos), 120000) : base);
+  const base = intervaloAtual();
+  st.esperaMs = st.erroSeguidos ? Math.min(base * (1 + st.erroSeguidos), 120000) : base;
+  st.timer = setTimeout(atualizar, st.esperaMs);
+}
+// alguém mexeu na página (toque, clique, tecla): volta ao ritmo rápido — sem disparar consulta a cada toque
+function acordar(){
+  if(DEMO || !BASE || st.iguais < CFG.CALMO_APOS) return;
+  st.iguais = 0; if(!st.erroSeguidos) agendar();
 }
 
 /* =====================================================================
@@ -880,7 +932,8 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ $('sheetPriv').classList.remove('sheet--open'); $('sheetAudit').classList.remove('sheet--open'); tourFechar(); } });
 let _buscaT = null; $('busca').addEventListener('input', () => { clearTimeout(_buscaT); _buscaT = setTimeout(render, 150); });
-document.addEventListener('visibilitychange', () => { if(document.hidden) clearTimeout(st.timer); else atualizar(); });
+document.addEventListener('visibilitychange', () => { if(document.hidden) clearTimeout(st.timer); else { st.iguais = 0; atualizar(); } });
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, acordar, { passive: true }));
 setInterval(renderLive, 30000);
 
 /* =====================================================================
